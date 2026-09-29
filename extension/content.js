@@ -81,6 +81,8 @@
   `;
 
   document.documentElement.appendChild(widget);
+  // Keep the floating control visible even before a text field receives focus.
+  widget.classList.add("stt-visible");
 
   const header = widget.querySelector("#stt-widget-header");
   const providerSelect = widget.querySelector("#stt-provider");
@@ -332,6 +334,12 @@
     },
     true,
   );
+
+  if (isEditable(document.activeElement)) {
+    target = document.activeElement;
+  }
+
+  requestAnimationFrame(() => clampWidgetToViewport());
 
   function setBusy(busy) {
     providerSelect.disabled = busy;
