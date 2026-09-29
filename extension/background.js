@@ -11,6 +11,31 @@ const ROUTES = {
   },
 };
 
+function parseGatewayResponse(raw, contentType) {
+  if (!raw) return {};
+
+  if (contentType?.includes("application/json")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error("Le serveur local a renvoyé un JSON invalide.");
+    }
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const looksLikeHtml = /^\s*</.test(raw);
+    if (looksLikeHtml) {
+      throw new Error(
+        "Le serveur local ne connaît pas cette route. Mets le repo à jour puis redémarre le serveur avec npm start.",
+      );
+    }
+
+    throw new Error("Réponse inattendue du serveur local.");
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const route = ROUTES[message?.type];
   if (!route) {
@@ -34,7 +59,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         },
       );
 
-      const body = await response.json();
+      const raw = await response.text();
+      const body = parseGatewayResponse(
+        raw,
+        response.headers.get("content-type"),
+      );
 
       if (!response.ok) {
         throw new Error(body?.error || `Gateway error ${response.status}`);
