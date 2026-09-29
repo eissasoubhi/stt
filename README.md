@@ -2,13 +2,16 @@
 
 Browser extension + local Node.js gateway for **voice → text** dictation on websites.
 
-The first version supports three transcription providers:
+The current version supports three transcription providers:
 
 - **Deepgram Nova-3** — Arabic locales including `ar-MA` and `ar-EG`, plus multilingual mode.
 - **Gemini API / Gemini 3.5 Transcribe** — dedicated audio transcription with automatic language detection and code-switching.
 - **Google Cloud Speech-to-Text V2 / Chirp 3** — `chirp_3`, including `ar-MA`, `ar-EG` and automatic language detection.
 
-It also supports an optional second step using Gemini text generation to convert the transcript into another language or dialect.
+For the optional second step — translating/adapting the transcript into another language or dialect — there are now two engines:
+
+- **NLLB-200 distilled 600M, local** — free, no API key, no per-request billing.
+- **Gemini** — cloud API option.
 
 Examples:
 
@@ -25,14 +28,17 @@ The extension records only after an explicit click, sends the recording only aft
 This project is intentionally conservative about paid API usage:
 
 - no background recording;
-- no automatic provider fallback;
+- no automatic STT-provider fallback;
 - no automatic cross-provider retry;
-- no automatic translation unless an output different from **Same** is explicitly selected;
+- no translation when output is **Same**;
+- no translation when the selected source and output are already the same language/dialect;
+- local NLLB is the default translation engine;
 - maximum recording duration;
 - daily and monthly local audio caps;
 - per-provider monthly caps;
-- separate daily/monthly caps for dialect/language conversion requests;
+- separate daily/monthly caps for translation requests;
 - Chirp 3 disabled by default;
+- Gemini disabled by default in `.env.example`;
 - API keys stay in the local server `.env`, never in the browser extension.
 
 These controls reduce accidental spend, but they do **not** replace provider-side billing controls.
@@ -50,6 +56,20 @@ npm start
 ```
 
 Then edit `server/.env` and add at least one transcription provider credential.
+
+For a Deepgram-only start:
+
+```env
+DEEPGRAM_ENABLED=true
+DEEPGRAM_API_KEY=your-key
+
+GEMINI_ENABLED=false
+CHIRP_ENABLED=false
+
+TRANSLATION_ENABLED=true
+TRANSLATION_PROVIDER=nllb
+NLLB_ENABLED=true
+```
 
 The gateway listens only on `127.0.0.1:3737` by default.
 
@@ -69,27 +89,45 @@ Choose:
 1. transcription provider;
 2. spoken language/dialect;
 3. output language/dialect;
-4. click **🎤**, speak, then click **■**.
+4. when conversion is needed, translation engine;
+5. click **🎤**, speak, then click **■**.
 
-If Output is **Same**, only the STT provider is called. If another output is selected, the exact transcript is first produced and then converted with Gemini.
+## Free local translation with NLLB
 
-## Supported spoken-language choices
+The default translation engine is:
 
-- Auto
-- Moroccan Darija
-- Egyptian Arabic
-- Arabic
-- French
-- English
+```text
+Xenova/nllb-200-distilled-600M
+```
 
-## Supported output choices
+It runs locally through Transformers.js/ONNX. No translation API key or payment method is needed.
 
-- Same as spoken
-- Moroccan Darija
-- Egyptian Arabic
-- Modern Standard Arabic
-- French
-- English
+The model has direct language codes for the dialects used by this project:
+
+```text
+Moroccan Arabic  ary_Arab
+Egyptian Arabic  arz_Arab
+Standard Arabic  arb_Arab
+French           fra_Latn
+English          eng_Latn
+```
+
+The model files are downloaded on first use and then cached locally. The first translation therefore takes longer than subsequent ones.
+
+NLLB needs to know the source language. When using **NLLB local**, choose an explicit spoken language/dialect instead of **Auto** when translation is required.
+
+NLLB-200 distilled 600M is licensed CC-BY-NC-4.0. Check the model license before using it for a commercial product.
+
+### Important: no translation is needed for Darija → Darija
+
+If you select:
+
+```text
+Spoken: Moroccan Darija
+Output: Moroccan Darija
+```
+
+the application now returns the Deepgram transcript directly. It does **not** call Gemini or NLLB.
 
 ## Provider configuration
 
@@ -102,11 +140,11 @@ DEEPGRAM_API_KEY=...
 DEEPGRAM_ENABLED=true
 ```
 
-The known-dialect selections map to their language codes. Auto uses Nova-3 multilingual mode (`language=multi`) so mixed-language speech can be recognized without forcing Arabic.
+The known-dialect selections map to their language codes.
 
 ### Gemini API
 
-Set:
+Gemini is optional:
 
 ```env
 GEMINI_API_KEY=...
@@ -115,24 +153,34 @@ GEMINI_MODEL=gemini-3.5-transcribe
 GEMINI_MODE=SMART
 ```
 
-Gemini transcription is left in automatic language detection mode so Darija/French/English code-switching is not artificially constrained.
+To use Gemini for text conversion instead of local NLLB:
 
-The same `GEMINI_API_KEY` is used for optional transcript conversion:
+```env
+TRANSLATION_PROVIDER=gemini
+GEMINI_TEXT_MODEL=gemini-3.8-flash
+```
+
+You can also choose **Gemini** from the translation-engine selector in the extension.
+
+### Local NLLB
+
+Defaults:
 
 ```env
 TRANSLATION_ENABLED=true
-GEMINI_TEXT_MODEL=gemini-3.8-flash
-DAILY_TRANSLATION_REQUEST_LIMIT=50
-MONTHLY_TRANSLATION_REQUEST_LIMIT=500
+TRANSLATION_PROVIDER=nllb
+NLLB_ENABLED=true
+NLLB_MODEL=Xenova/nllb-200-distilled-600M
+NLLB_DTYPE=q8
 ```
 
-Selecting Output = **Same** guarantees that this second Gemini text request is not made.
+No API key is required.
 
 ### Chirp 3
 
 Chirp 3 uses Google Cloud Speech-to-Text V2 and is **separate from Gemini API billing**.
 
-Enable the Speech-to-Text API in your Google Cloud project, configure Application Default Credentials (for example with a service-account JSON file), then set:
+Enable the Speech-to-Text API in your Google Cloud project, configure Application Default Credentials, then set:
 
 ```env
 CHIRP_ENABLED=true
@@ -140,8 +188,6 @@ GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_REGION=eu
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
 ```
-
-Auto maps to Chirp 3 automatic language detection.
 
 ## Local spending guardrails
 
@@ -164,7 +210,7 @@ Set any limit lower if you want a tighter local hard stop. Usage is stored only 
 
 ## Security
 
-The server binds to localhost only. Requests to the transcription endpoint require the extension client header and reject normal webpage origins. This prevents a random website from silently using the local gateway in the normal browser security model.
+The server binds to localhost only. Requests to the transcription endpoint require the extension client header and reject normal webpage origins.
 
 Never commit `.env`, API keys, Google service-account JSON files, or any recorded audio.
 
@@ -174,6 +220,6 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Short dictation recordings (up to 60 seconds by default).
 - Textareas, normal text inputs, and `contenteditable` editors.
 - One explicit STT provider request per recording.
-- Optional one-shot text conversion using Gemini when a different output language/dialect is selected.
+- Optional dialect/language conversion with either local NLLB or Gemini.
 
-A future version can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
+Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
