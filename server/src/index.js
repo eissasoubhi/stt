@@ -22,6 +22,7 @@ const requestTimes = [];
 const SOURCE_LANGUAGES = new Set(["auto", "ar-MA", "ar-EG", "ar", "fr", "en"]);
 const OUTPUT_LANGUAGES = new Set(["same", "ar-MA", "ar-EG", "ar", "fr", "en"]);
 const TRANSLATION_PROVIDERS = new Set(["groq", "gemini", "nllb"]);
+const MAX_TRANSLATION_TEXT_LENGTH = 4000;
 
 function normalizeMimeType(value) {
   const mimeType = String(value || "audio/webm").split(";")[0].trim().toLowerCase();
@@ -108,6 +109,105 @@ app.get("/health", (_req, res) => {
     },
     usage: usage.snapshot(),
   });
+});
+
+app.post("/v1/translate", extensionRequestGuard, async (req, res) => {
+  try {
+    const {
+      text,
+      sourceLanguage = "auto",
+      targetLanguage = "ar-MA",
+      translationProvider = config.translation.defaultProvider,
+    } = req.body || {};
+
+    const normalizedText = String(text || "").trim();
+
+    if (!normalizedText) {
+      return res.status(400).json({ error: "Text to translate is required." });
+    }
+
+    if (normalizedText.length > MAX_TRANSLATION_TEXT_LENGTH) {
+      return res.status(413).json({
+        error: `Text is too long. Maximum is ${MAX_TRANSLATION_TEXT_LENGTH} characters.`,
+      });
+    }
+
+    if (!SOURCE_LANGUAGES.has(sourceLanguage)) {
+      return res.status(400).json({ error: "Unsupported source language selection." });
+    }
+
+    if (!OUTPUT_LANGUAGES.has(targetLanguage) || targetLanguage === "same") {
+      return res.status(400).json({ error: "Unsupported translation target." });
+    }
+
+    if (!TRANSLATION_PROVIDERS.has(translationProvider)) {
+      return res.status(400).json({ error: "Unknown translation provider." });
+    }
+
+    if (!isTranslationConfigured(translationProvider)) {
+      const hints = {
+        groq: "GROQ_API_KEY is not configured.",
+        gemini: "GEMINI_API_KEY is not configured.",
+        nllb: "Local NLLB translation is disabled.",
+      };
+      return res.status(503).json({
+        error: `Translation provider ${translationProvider} is unavailable. ${hints[translationProvider]}`,
+      });
+    }
+
+    if (translationProvider === "nllb" && sourceLanguage === "auto") {
+      return res.status(400).json({
+        error: "NLLB needs an explicit source language. Choose English, French, Arabic, Darija, or Egyptian.",
+      });
+    }
+
+    usage.reserveTranslation({
+      dailyLimit: config.translation.dailyRequestLimit,
+      monthlyLimit: config.translation.monthlyRequestLimit,
+    });
+
+    let translatedText;
+
+    if (translationProvider === "groq") {
+      translatedText = await convertTranscriptWithGroq({
+        text: normalizedText,
+        targetLanguage,
+        apiKey: config.translation.groq.apiKey,
+        model: config.translation.groq.model,
+      });
+    } else if (translationProvider === "gemini") {
+      translatedText = await convertTranscript({
+        text: normalizedText,
+        targetLanguage,
+        apiKey: config.providers.gemini.apiKey,
+        model: config.translation.gemini.model,
+      });
+    } else {
+      translatedText = await convertTranscriptWithNllb({
+        text: normalizedText,
+        sourceLanguage,
+        targetLanguage,
+        model: config.translation.nllb.model,
+        dtype: config.translation.nllb.dtype,
+      });
+    }
+
+    return res.json({
+      text: translatedText,
+      sourceLanguage,
+      targetLanguage,
+      translationProvider,
+    });
+  } catch (error) {
+    if (error instanceof UsageLimitError) {
+      return res.status(429).json({ error: error.message });
+    }
+
+    console.error(error);
+    return res.status(502).json({
+      error: error instanceof Error ? error.message : "Translation failed.",
+    });
+  }
 });
 
 app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
