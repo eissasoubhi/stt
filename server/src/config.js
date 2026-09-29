@@ -28,9 +28,18 @@ export const config = {
 
   translation: {
     enabled: readBoolean("TRANSLATION_ENABLED", true),
-    model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
+    defaultProvider: process.env.TRANSLATION_PROVIDER || "nllb",
     dailyRequestLimit: readNumber("DAILY_TRANSLATION_REQUEST_LIMIT", 50),
     monthlyRequestLimit: readNumber("MONTHLY_TRANSLATION_REQUEST_LIMIT", 500),
+    gemini: {
+      model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
+    },
+    nllb: {
+      enabled: readBoolean("NLLB_ENABLED", true),
+      model:
+        process.env.NLLB_MODEL || "Xenova/nllb-200-distilled-600M",
+      dtype: process.env.NLLB_DTYPE || "q8",
+    },
   },
 
   providers: {
@@ -70,9 +79,16 @@ export function isProviderConfigured(name) {
   return false;
 }
 
-export function isTranslationConfigured() {
-  return (
-    config.translation.enabled &&
-    Boolean(config.providers.gemini.apiKey)
-  );
+export function isTranslationConfigured(name) {
+  if (!config.translation.enabled) return false;
+
+  if (name === "nllb") {
+    return config.translation.nllb.enabled;
+  }
+
+  if (name === "gemini") {
+    return Boolean(config.providers.gemini.apiKey);
+  }
+
+  return false;
 }
