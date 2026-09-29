@@ -1,0 +1,182 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
+
+import { config, isProviderConfigured } from "./config.js";
+import { UsageLimitError, UsageLimiter } from "./usage.js";
+import { transcribeWithDeepgram } from "./providers/deepgram.js";
+import { transcribeWithGemini } from "./providers/gemini.js";
+import { transcribeWithChirp } from "./providers/chirp.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const usage = new UsageLimiter(path.resolve(__dirname, "../data/usage.json"));
+const app = express();
+
+app.disable("x-powered-by");
+app.use(express.json({ limit: "12mb" }));
+
+const requestTimes = [];
+
+function normalizeMimeType(value) {
+  const mimeType = String(value || "audio/webm").split(";")[0].trim().toLowerCase();
+  const allowed = new Set([
+    "audio/webm",
+    "audio/ogg",
+    "audio/wav",
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/aac",
+    "audio/flac",
+    "audio/opus",
+  ]);
+
+  if (!allowed.has(mimeType)) {
+    throw new Error(`Unsupported audio MIME type: ${mimeType}`);
+  }
+
+  return mimeType;
+}
+
+function extensionRequestGuard(req, res, next) {
+  const origin = req.get("origin");
+
+  if (
+    origin &&
+    !origin.startsWith("chrome-extension://") &&
+    !origin.startsWith("moz-extension://")
+  ) {
+    return res.status(403).json({ error: "Browser page origins are not allowed." });
+  }
+
+  if (req.get("x-stt-client") !== "browser-extension-v1") {
+    return res.status(403).json({ error: "Missing STT extension client header." });
+  }
+
+  const now = Date.now();
+  while (requestTimes.length && requestTimes[0] < now - 60_000) {
+    requestTimes.shift();
+  }
+
+  if (requestTimes.length >= config.requestsPerMinuteLimit) {
+    return res.status(429).json({ error: "Local request rate limit reached." });
+  }
+
+  requestTimes.push(now);
+  next();
+}
+
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    providers: Object.fromEntries(
+      Object.keys(config.providers).map((name) => [
+        name,
+        {
+          enabled: config.providers[name].enabled,
+          configured: isProviderConfigured(name),
+        },
+      ]),
+    ),
+    usage: usage.snapshot(),
+  });
+});
+
+app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
+  try {
+    const {
+      audioBase64,
+      durationMs,
+      language = "ar-MA",
+      provider = "deepgram",
+      mimeType: rawMimeType = "audio/webm",
+    } = req.body || {};
+
+    if (!["deepgram", "gemini", "chirp"].includes(provider)) {
+      return res.status(400).json({ error: "Unknown provider." });
+    }
+
+    if (!["ar-MA", "ar-EG", "auto"].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language selection." });
+    }
+
+    if (!isProviderConfigured(provider)) {
+      return res.status(503).json({
+        error: `${provider} is disabled or not configured on the local gateway.`,
+      });
+    }
+
+    const numericDurationMs = Number(durationMs);
+    if (
+      !Number.isFinite(numericDurationMs) ||
+      numericDurationMs <= 0 ||
+      numericDurationMs > config.maxRecordingSeconds * 1000 + 1500
+    ) {
+      return res.status(400).json({ error: "Invalid or too-long recording duration." });
+    }
+
+    if (typeof audioBase64 !== "string" || audioBase64.length === 0) {
+      return res.status(400).json({ error: "Missing audio data." });
+    }
+
+    const audio = Buffer.from(audioBase64, "base64");
+    if (!audio.length || audio.length > config.maxAudioBytes) {
+      return res.status(413).json({ error: "Audio payload is empty or too large." });
+    }
+
+    const mimeType = normalizeMimeType(rawMimeType);
+    const providerConfig = config.providers[provider];
+
+    usage.reserve({
+      provider,
+      durationMs: numericDurationMs,
+      limits: {
+        dailyMinutes: config.dailyAudioMinutesLimit,
+        monthlyMinutes: config.monthlyAudioMinutesLimit,
+        providerMonthlyMinutes: providerConfig.monthlyAudioMinutesLimit,
+      },
+    });
+
+    let text;
+
+    if (provider === "deepgram") {
+      text = await transcribeWithDeepgram({
+        audio,
+        mimeType,
+        language,
+        apiKey: providerConfig.apiKey,
+      });
+    } else if (provider === "gemini") {
+      text = await transcribeWithGemini({
+        audio,
+        mimeType,
+        apiKey: providerConfig.apiKey,
+        model: providerConfig.model,
+        mode: providerConfig.mode,
+      });
+    } else {
+      text = await transcribeWithChirp({
+        audio,
+        language,
+        projectId: providerConfig.projectId,
+        region: providerConfig.region,
+      });
+    }
+
+    return res.json({ text, provider, language });
+  } catch (error) {
+    if (error instanceof UsageLimitError) {
+      return res.status(429).json({ error: error.message });
+    }
+
+    console.error(error);
+    return res.status(502).json({
+      error: error instanceof Error ? error.message : "Transcription failed.",
+    });
+  }
+});
+
+app.listen(config.port, config.host, () => {
+  console.log(`STT gateway listening on http://${config.host}:${config.port}`);
+});
