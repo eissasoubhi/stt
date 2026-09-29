@@ -24,6 +24,8 @@ function emptyState(now = new Date()) {
     monthKey: keys.month,
     daySeconds: 0,
     monthSeconds: 0,
+    translationDayCount: 0,
+    translationMonthCount: 0,
     providers: {},
   };
 }
@@ -47,14 +49,18 @@ export class UsageLimiter {
     if (state.dayKey !== keys.day) {
       state.dayKey = keys.day;
       state.daySeconds = 0;
+      state.translationDayCount = 0;
     }
 
     if (state.monthKey !== keys.month) {
       state.monthKey = keys.month;
       state.monthSeconds = 0;
+      state.translationMonthCount = 0;
       state.providers = {};
     }
 
+    state.translationDayCount ||= 0;
+    state.translationMonthCount ||= 0;
     state.providers ||= {};
     return state;
   }
@@ -99,6 +105,27 @@ export class UsageLimiter {
       daySeconds: state.daySeconds,
       monthSeconds: state.monthSeconds,
       providerMonthSeconds: providerState.monthSeconds,
+    };
+  }
+
+  reserveTranslation({ dailyLimit, monthlyLimit, now = new Date() }) {
+    const state = this.load(now);
+
+    if (state.translationDayCount + 1 > dailyLimit) {
+      throw new UsageLimitError("Daily local translation request limit reached.");
+    }
+
+    if (state.translationMonthCount + 1 > monthlyLimit) {
+      throw new UsageLimitError("Monthly local translation request limit reached.");
+    }
+
+    state.translationDayCount += 1;
+    state.translationMonthCount += 1;
+    this.save(state);
+
+    return {
+      translationDayCount: state.translationDayCount,
+      translationMonthCount: state.translationMonthCount,
     };
   }
 
