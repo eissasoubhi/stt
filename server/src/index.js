@@ -9,6 +9,7 @@ import { transcribeWithGemini } from "./providers/gemini.js";
 import { transcribeWithChirp } from "./providers/chirp.js";
 import { convertTranscript } from "./translate.js";
 import { convertTranscriptWithNllb } from "./translation/nllb.js";
+import { convertTranscriptWithGroq } from "./translation/groq.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const usage = new UsageLimiter(path.resolve(__dirname, "../data/usage.json"));
@@ -20,7 +21,7 @@ app.use(express.json({ limit: "12mb" }));
 const requestTimes = [];
 const SOURCE_LANGUAGES = new Set(["auto", "ar-MA", "ar-EG", "ar", "fr", "en"]);
 const OUTPUT_LANGUAGES = new Set(["same", "ar-MA", "ar-EG", "ar", "fr", "en"]);
-const TRANSLATION_PROVIDERS = new Set(["nllb", "gemini"]);
+const TRANSLATION_PROVIDERS = new Set(["groq", "gemini", "nllb"]);
 
 function normalizeMimeType(value) {
   const mimeType = String(value || "audio/webm").split(";")[0].trim().toLowerCase();
@@ -88,15 +89,20 @@ app.get("/health", (_req, res) => {
       enabled: config.translation.enabled,
       defaultProvider: config.translation.defaultProvider,
       providers: {
-        nllb: {
-          configured: isTranslationConfigured("nllb"),
-          model: config.translation.nllb.model,
-          local: true,
+        groq: {
+          configured: isTranslationConfigured("groq"),
+          model: config.translation.groq.model,
+          local: false,
         },
         gemini: {
           configured: isTranslationConfigured("gemini"),
           model: config.translation.gemini.model,
           local: false,
+        },
+        nllb: {
+          configured: isTranslationConfigured("nllb"),
+          model: config.translation.nllb.model,
+          local: true,
         },
       },
     },
@@ -143,12 +149,13 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
       (language === "auto" || outputLanguage !== language);
 
     if (needsConversion && !isTranslationConfigured(translationProvider)) {
-      const hint =
-        translationProvider === "gemini"
-          ? "GEMINI_API_KEY is not configured."
-          : "Local NLLB translation is disabled.";
+      const hints = {
+        groq: "GROQ_API_KEY is not configured.",
+        gemini: "GEMINI_API_KEY is not configured.",
+        nllb: "Local NLLB translation is disabled.",
+      };
       return res.status(503).json({
-        error: `Translation provider ${translationProvider} is unavailable. ${hint}`,
+        error: `Translation provider ${translationProvider} is unavailable. ${hints[translationProvider]}`,
       });
     }
 
@@ -217,20 +224,27 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
         monthlyLimit: config.translation.monthlyRequestLimit,
       });
 
-      if (translationProvider === "nllb") {
+      if (translationProvider === "groq") {
+        text = await convertTranscriptWithGroq({
+          text: transcript,
+          targetLanguage: outputLanguage,
+          apiKey: config.translation.groq.apiKey,
+          model: config.translation.groq.model,
+        });
+      } else if (translationProvider === "gemini") {
+        text = await convertTranscript({
+          text: transcript,
+          targetLanguage: outputLanguage,
+          apiKey: config.providers.gemini.apiKey,
+          model: config.translation.gemini.model,
+        });
+      } else {
         text = await convertTranscriptWithNllb({
           text: transcript,
           sourceLanguage: language,
           targetLanguage: outputLanguage,
           model: config.translation.nllb.model,
           dtype: config.translation.nllb.dtype,
-        });
-      } else {
-        text = await convertTranscript({
-          text: transcript,
-          targetLanguage: outputLanguage,
-          apiKey: config.providers.gemini.apiKey,
-          model: config.translation.gemini.model,
         });
       }
     }
