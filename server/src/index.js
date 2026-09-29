@@ -2,11 +2,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 
-import { config, isProviderConfigured } from "./config.js";
+import { config, isProviderConfigured, isTranslationConfigured } from "./config.js";
 import { UsageLimitError, UsageLimiter } from "./usage.js";
 import { transcribeWithDeepgram } from "./providers/deepgram.js";
 import { transcribeWithGemini } from "./providers/gemini.js";
 import { transcribeWithChirp } from "./providers/chirp.js";
+import { convertTranscript } from "./translate.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const usage = new UsageLimiter(path.resolve(__dirname, "../data/usage.json"));
@@ -16,6 +17,8 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "12mb" }));
 
 const requestTimes = [];
+const SOURCE_LANGUAGES = new Set(["auto", "ar-MA", "ar-EG", "ar", "fr", "en"]);
+const OUTPUT_LANGUAGES = new Set(["same", "ar-MA", "ar-EG", "ar", "fr", "en"]);
 
 function normalizeMimeType(value) {
   const mimeType = String(value || "audio/webm").split(";")[0].trim().toLowerCase();
@@ -79,6 +82,11 @@ app.get("/health", (_req, res) => {
         },
       ]),
     ),
+    translation: {
+      enabled: config.translation.enabled,
+      configured: isTranslationConfigured(),
+      model: config.translation.model,
+    },
     usage: usage.snapshot(),
   });
 });
@@ -88,7 +96,8 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
     const {
       audioBase64,
       durationMs,
-      language = "ar-MA",
+      language = "auto",
+      outputLanguage = "same",
       provider = "deepgram",
       mimeType: rawMimeType = "audio/webm",
     } = req.body || {};
@@ -97,13 +106,24 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
       return res.status(400).json({ error: "Unknown provider." });
     }
 
-    if (!["ar-MA", "ar-EG", "auto"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language selection." });
+    if (!SOURCE_LANGUAGES.has(language)) {
+      return res.status(400).json({ error: "Unsupported source language selection." });
+    }
+
+    if (!OUTPUT_LANGUAGES.has(outputLanguage)) {
+      return res.status(400).json({ error: "Unsupported output language selection." });
     }
 
     if (!isProviderConfigured(provider)) {
       return res.status(503).json({
         error: `${provider} is disabled or not configured on the local gateway.`,
+      });
+    }
+
+    if (outputLanguage !== "same" && !isTranslationConfigured()) {
+      return res.status(503).json({
+        error:
+          "Dialect/language conversion is disabled or GEMINI_API_KEY is not configured.",
       });
     }
 
@@ -138,17 +158,17 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
       },
     });
 
-    let text;
+    let transcript;
 
     if (provider === "deepgram") {
-      text = await transcribeWithDeepgram({
+      transcript = await transcribeWithDeepgram({
         audio,
         mimeType,
         language,
         apiKey: providerConfig.apiKey,
       });
     } else if (provider === "gemini") {
-      text = await transcribeWithGemini({
+      transcript = await transcribeWithGemini({
         audio,
         mimeType,
         apiKey: providerConfig.apiKey,
@@ -156,7 +176,7 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
         mode: providerConfig.mode,
       });
     } else {
-      text = await transcribeWithChirp({
+      transcript = await transcribeWithChirp({
         audio,
         language,
         projectId: providerConfig.projectId,
@@ -164,7 +184,30 @@ app.post("/v1/transcribe", extensionRequestGuard, async (req, res) => {
       });
     }
 
-    return res.json({ text, provider, language });
+    let text = transcript;
+
+    if (outputLanguage !== "same") {
+      usage.reserveTranslation({
+        dailyLimit: config.translation.dailyRequestLimit,
+        monthlyLimit: config.translation.monthlyRequestLimit,
+      });
+
+      text = await convertTranscript({
+        text: transcript,
+        targetLanguage: outputLanguage,
+        apiKey: config.providers.gemini.apiKey,
+        model: config.translation.model,
+      });
+    }
+
+    return res.json({
+      text,
+      transcript,
+      provider,
+      language,
+      outputLanguage,
+      converted: outputLanguage !== "same",
+    });
   } catch (error) {
     if (error instanceof UsageLimitError) {
       return res.status(429).json({ error: error.message });
