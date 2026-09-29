@@ -80,6 +80,39 @@
         </select>
       </div>
 
+      <section id="stt-text-translation" class="stt-text-translation" aria-label="Typed text translation">
+        <div class="stt-text-translation-heading stt-full-only">Traduction texte</div>
+
+        <div class="stt-text-translation-controls">
+          <select id="stt-text-source-language" class="stt-full-only" aria-label="Typed text source language">
+            <option value="auto">Auto</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="ar">العربية</option>
+            <option value="ar-MA">🇲🇦 Darija</option>
+            <option value="ar-EG">🇪🇬 Egyptian</option>
+          </select>
+
+          <select id="stt-text-target-language" aria-label="Typed text target language">
+            <option value="ar-MA">→ 🇲🇦 Darija</option>
+            <option value="ar-EG">→ 🇪🇬 Egyptian</option>
+            <option value="ar">→ العربية الفصحى</option>
+          </select>
+        </div>
+
+        <textarea
+          id="stt-text-translation-input"
+          rows="2"
+          maxlength="4000"
+          placeholder="Type in English or French…"
+          aria-label="Text to translate"
+        ></textarea>
+
+        <button id="stt-text-translate-button" type="button" title="Translate and insert into the active text field">
+          Traduire → insérer
+        </button>
+      </section>
+
       <section id="stt-phrases-section" class="stt-phrases-section" aria-label="Saved Arabic phrases">
         <div class="stt-phrases-heading stt-full-only">
           <span>عبارات سريعة</span>
@@ -132,6 +165,10 @@
   const phraseError = widget.querySelector("#stt-phrase-error");
   const phraseList = widget.querySelector("#stt-phrase-list");
   const phrasesCount = widget.querySelector("#stt-phrases-count");
+  const textSourceLanguageSelect = widget.querySelector("#stt-text-source-language");
+  const textTargetLanguageSelect = widget.querySelector("#stt-text-target-language");
+  const textTranslationInput = widget.querySelector("#stt-text-translation-input");
+  const textTranslateButton = widget.querySelector("#stt-text-translate-button");
 
   function needsConversion() {
     return (
@@ -488,12 +525,16 @@
       "widgetDisplayMode",
       "widgetPosition",
       "savedArabicPhrases",
+      "textSourceLanguage",
+      "textTargetLanguage",
     ])
     .then((stored) => {
       if (stored.provider) providerSelect.value = stored.provider;
       if (stored.language) languageSelect.value = stored.language;
       if (stored.outputLanguage) outputLanguageSelect.value = stored.outputLanguage;
       translationProviderSelect.value = stored.translationProvider || "groq";
+      textSourceLanguageSelect.value = stored.textSourceLanguage || "auto";
+      textTargetLanguageSelect.value = stored.textTargetLanguage || "ar-MA";
 
       savedPhrases = Array.isArray(stored.savedArabicPhrases)
         ? stored.savedArabicPhrases
@@ -534,6 +575,18 @@
   translationProviderSelect.addEventListener("change", () => {
     chrome.storage.local.set({
       translationProvider: translationProviderSelect.value,
+    });
+  });
+
+  textSourceLanguageSelect.addEventListener("change", () => {
+    chrome.storage.local.set({
+      textSourceLanguage: textSourceLanguageSelect.value,
+    });
+  });
+
+  textTargetLanguageSelect.addEventListener("change", () => {
+    chrome.storage.local.set({
+      textTargetLanguage: textTargetLanguageSelect.value,
     });
   });
 
@@ -660,6 +713,10 @@
     phraseInput.disabled = busy;
     phraseSaveButton.disabled = busy;
     phraseCancelEditButton.disabled = busy;
+    textSourceLanguageSelect.disabled = busy;
+    textTargetLanguageSelect.disabled = busy;
+    textTranslationInput.disabled = busy;
+    textTranslateButton.disabled = busy;
 
     for (const button of modeButtons) {
       button.disabled = busy;
@@ -752,6 +809,67 @@
     selection?.addRange(range);
     dispatchInput(element, text);
   }
+
+  async function translateTypedText() {
+    const sourceText = textTranslationInput.value.trim();
+
+    if (!sourceText) {
+      status.textContent = "Tape d’abord le texte à traduire.";
+      textTranslationInput.focus();
+      return;
+    }
+
+    if (!target || !isEditable(target) || widget.contains(target)) {
+      status.textContent = "Clique d’abord dans le champ texte de destination.";
+      return;
+    }
+
+    setBusy(true);
+    status.textContent = "Traduction…";
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "TEXT_TRANSLATE",
+        payload: {
+          text: sourceText,
+          sourceLanguage: textSourceLanguageSelect.value,
+          targetLanguage: textTargetLanguageSelect.value,
+          translationProvider: translationProviderSelect.value,
+        },
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || "Translation failed.");
+      }
+
+      insertText(target, response.text);
+      textTranslationInput.value = "";
+      status.textContent = "Traduit + inséré ✓";
+
+      setTimeout(() => {
+        if (status.textContent === "Traduit + inséré ✓") {
+          status.textContent = "";
+        }
+      }, 2200);
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : "Translation failed.";
+    } finally {
+      setBusy(false);
+      requestAnimationFrame(() => clampWidgetToViewport());
+    }
+  }
+
+  textTranslateButton.addEventListener("click", () => {
+    void translateTypedText();
+  });
+
+  textTranslationInput.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      void translateTypedText();
+    }
+  });
 
   async function sendRecording(blob, durationMs) {
     setBusy(true);
