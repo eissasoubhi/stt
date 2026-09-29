@@ -16,10 +16,21 @@
       <option value="gemini">Gemini</option>
       <option value="chirp">Chirp 3</option>
     </select>
-    <select id="stt-language" aria-label="Arabic dialect">
-      <option value="ar-MA">🇲🇦 Darija</option>
-      <option value="ar-EG">🇪🇬 Egyptian</option>
-      <option value="auto">Auto</option>
+    <select id="stt-language" aria-label="Spoken language">
+      <option value="auto">🎙️ Auto</option>
+      <option value="ar-MA">🎙️ 🇲🇦 Darija</option>
+      <option value="ar-EG">🎙️ 🇪🇬 Egyptian</option>
+      <option value="ar">🎙️ العربية</option>
+      <option value="fr">🎙️ Français</option>
+      <option value="en">🎙️ English</option>
+    </select>
+    <select id="stt-output-language" aria-label="Output language">
+      <option value="same">→ Same</option>
+      <option value="ar-MA">→ 🇲🇦 Darija</option>
+      <option value="ar-EG">→ 🇪🇬 Egyptian</option>
+      <option value="ar">→ العربية الفصحى</option>
+      <option value="fr">→ Français</option>
+      <option value="en">→ English</option>
     </select>
     <button id="stt-record-button" type="button" title="Start dictation">🎤</button>
     <span id="stt-status" aria-live="polite"></span>
@@ -29,13 +40,17 @@
 
   const providerSelect = widget.querySelector("#stt-provider");
   const languageSelect = widget.querySelector("#stt-language");
+  const outputLanguageSelect = widget.querySelector("#stt-output-language");
   const recordButton = widget.querySelector("#stt-record-button");
   const status = widget.querySelector("#stt-status");
 
-  chrome.storage.local.get(["provider", "language"]).then((stored) => {
-    if (stored.provider) providerSelect.value = stored.provider;
-    if (stored.language) languageSelect.value = stored.language;
-  });
+  chrome.storage.local
+    .get(["provider", "language", "outputLanguage"])
+    .then((stored) => {
+      if (stored.provider) providerSelect.value = stored.provider;
+      if (stored.language) languageSelect.value = stored.language;
+      if (stored.outputLanguage) outputLanguageSelect.value = stored.outputLanguage;
+    });
 
   providerSelect.addEventListener("change", () => {
     chrome.storage.local.set({ provider: providerSelect.value });
@@ -43,6 +58,10 @@
 
   languageSelect.addEventListener("change", () => {
     chrome.storage.local.set({ language: languageSelect.value });
+  });
+
+  outputLanguageSelect.addEventListener("change", () => {
+    chrome.storage.local.set({ outputLanguage: outputLanguageSelect.value });
   });
 
   function isEditable(element) {
@@ -80,6 +99,7 @@
   function setBusy(busy) {
     providerSelect.disabled = busy;
     languageSelect.disabled = busy;
+    outputLanguageSelect.disabled = busy;
     recordButton.disabled = busy;
   }
 
@@ -172,7 +192,8 @@
 
   async function sendRecording(blob, durationMs) {
     setBusy(true);
-    status.textContent = "Transcribing…";
+    status.textContent =
+      outputLanguageSelect.value === "same" ? "Transcribing…" : "Transcribing + converting…";
 
     try {
       const audioBase64 = arrayBufferToBase64(await blob.arrayBuffer());
@@ -185,6 +206,7 @@
           mimeType: blob.type || "audio/webm",
           provider: providerSelect.value,
           language: languageSelect.value,
+          outputLanguage: outputLanguageSelect.value,
         },
       });
 
@@ -193,9 +215,9 @@
       }
 
       insertText(target, response.text);
-      status.textContent = "Inserted ✓";
+      status.textContent = response.converted ? "Converted + inserted ✓" : "Inserted ✓";
       setTimeout(() => {
-        if (status.textContent === "Inserted ✓") status.textContent = "";
+        if (status.textContent.endsWith("✓")) status.textContent = "";
       }, 2500);
     } catch (error) {
       status.textContent =
