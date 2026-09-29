@@ -82,3 +82,42 @@ test("daily usage resets on the next UTC day", () => {
     }),
   );
 });
+
+test("translation requests have independent hard caps", () => {
+  const limiter = new UsageLimiter(temporaryUsageFile());
+  const now = new Date("2026-09-29T12:00:00Z");
+
+  limiter.reserveTranslation({
+    dailyLimit: 1,
+    monthlyLimit: 10,
+    now,
+  });
+
+  assert.throws(
+    () =>
+      limiter.reserveTranslation({
+        dailyLimit: 1,
+        monthlyLimit: 10,
+        now,
+      }),
+    UsageLimitError,
+  );
+});
+
+test("translation daily count resets on next UTC day", () => {
+  const limiter = new UsageLimiter(temporaryUsageFile());
+
+  limiter.reserveTranslation({
+    dailyLimit: 1,
+    monthlyLimit: 10,
+    now: new Date("2026-09-29T23:59:00Z"),
+  });
+
+  assert.doesNotThrow(() =>
+    limiter.reserveTranslation({
+      dailyLimit: 1,
+      monthlyLimit: 10,
+      now: new Date("2026-09-30T00:01:00Z"),
+    }),
+  );
+});
