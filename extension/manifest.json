@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Arabic Voice Dictation",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Dictate Arabic, Moroccan Darija or Egyptian Arabic into text fields using Deepgram, Gemini or Chirp 3.",
   "permissions": [
     "storage"
