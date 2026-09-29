@@ -95,31 +95,19 @@ Choose:
 4. when conversion is needed, translation engine;
 5. click **🎤**, speak, then click **■**.
 
-## Display modes and positioning
+## Display modes and inline widget
 
-The widget has three display modes:
+The extension widget is now **inline-only**: it is inserted directly into the page DOM immediately before the active text field. It no longer floats over the page, has no drag-and-drop mode, and cannot be detached.
 
-- **Full** `▣`: shows all controls with labels, the complete saved-phrase manager, microphone controls and status.
-- **Medium** `▬`: shows the daily controls plus the **5 most-used saved phrases**.
-- **Reduced** `●`: keeps only the microphone/cancel controls plus the small mode switcher.
+When you focus another editable field, the same widget is moved in the DOM so it appears directly above that field. This keeps the controls visually connected to the place where text will be inserted.
 
-It also has two positioning modes:
+The widget still has three density modes:
 
-- **Floating**: drag the widget anywhere on the page. Its last position is remembered.
-- **Attached** `📎`: the widget follows the active text field and is positioned intelligently just **above** it. If there is not enough room above, it moves below the field instead.
+- **Full** `▣`: all STT settings, explicit translation controls, full quick-phrase management, microphone and status.
+- **Medium** `▬`: everyday controls, explicit translation source/destination, top quick phrases and microphone.
+- **Reduced** `●`: a compact inline microphone toolbar above the active field.
 
-Click the paperclip button in the widget header to switch between floating and attached modes. The selected positioning mode is remembered in `chrome.storage.local`.
-
-In attached mode:
-
-- focusing another text field automatically moves the widget to that field;
-- scrolling and resizing keep the widget aligned with the field;
-- resizing the text field is tracked;
-- the widget is centered relative to the field and kept inside the visible viewport;
-- a small pointer visually connects the widget to the target field;
-- dragging the widget immediately detaches it and switches back to floating mode.
-
-Both the selected display mode and positioning mode persist across pages/sites.
+The widget forces its own left-to-right UI direction so Arabic/RTL websites cannot reverse the control order. Arabic phrase content itself remains RTL.
 
 ## Typed text → Arabic translation
 
@@ -137,7 +125,7 @@ Moroccan Darija / Egyptian Arabic / MSA
 Automatically inserted into the last active page text field
 ```
 
-In **Full** mode you can choose the source language (`Auto`, English, French, Arabic, Darija, Egyptian) and the target language. In **Medium** mode the source defaults to the saved value (normally `Auto`) and only the common controls are shown.
+Both **Full** and **Medium** modes show explicit labels for **Langue source** and **Traduire vers** so the direction is always clear. The recommended source setting is `Détection automatique` for Groq/Gemini.
 
 To use it:
 
@@ -300,8 +288,7 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - One explicit STT provider request per recording.
 - Optional dialect/language conversion with Groq, Gemini, or local NLLB.
 - Persistent Full / Medium / Reduced widget modes.
-- Smart floating / attached-to-field positioning mode with automatic above/below placement.
-- Drag-and-drop-style repositioning with last position remembered across sites.
+- Inline DOM widget automatically inserted immediately above the active editable field.
 - Ranked personal Arabic quick phrases with local usage statistics.
 - Recording cancellation before any transcription request is sent.
 - Typed English/French text translation to Darija, Egyptian Arabic, or MSA with automatic insertion into the active page field.
