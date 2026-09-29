@@ -3,6 +3,15 @@ import speech from "@google-cloud/speech";
 const { v2 } = speech;
 const clients = new Map();
 
+const CHIRP_LANGUAGE_CODES = {
+  auto: "auto",
+  "ar-MA": "ar-MA",
+  "ar-EG": "ar-EG",
+  ar: "ar-XA",
+  en: "en-US",
+  fr: "fr-FR",
+};
+
 function clientFor(region) {
   if (!clients.has(region)) {
     clients.set(
@@ -23,12 +32,17 @@ export async function transcribeWithChirp({
   region,
 }) {
   const client = clientFor(region);
+  const languageCode = CHIRP_LANGUAGE_CODES[language];
+
+  if (!languageCode) {
+    throw new Error("Unsupported Chirp 3 source language.");
+  }
 
   const [response] = await client.recognize({
     recognizer: `projects/${projectId}/locations/${region}/recognizers/_`,
     config: {
       autoDecodingConfig: {},
-      languageCodes: [language === "auto" ? "auto" : language],
+      languageCodes: [languageCode],
       model: "chirp_3",
     },
     content: audio,
