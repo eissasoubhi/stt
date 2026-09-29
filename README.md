@@ -105,6 +105,35 @@ The floating widget has three display modes:
 
 Drag the widget from its header/grip to move it anywhere on the page. The extension stores both the selected display mode and the last position in `chrome.storage.local`, so they are restored on the next page/site. If the browser window becomes smaller, the widget is automatically clamped back inside the viewport.
 
+## Typed text → Arabic translation
+
+The extension can also translate text that you type, without recording audio.
+
+Workflow:
+
+```text
+Type English or French
+        ↓
+Groq Cloud by default
+        ↓
+Moroccan Darija / Egyptian Arabic / MSA
+        ↓
+Automatically inserted into the last active page text field
+```
+
+In **Full** mode you can choose the source language (`Auto`, English, French, Arabic, Darija, Egyptian) and the target language. In **Medium** mode the source defaults to the saved value (normally `Auto`) and only the common controls are shown.
+
+To use it:
+
+1. click the destination text field on the web page;
+2. type your English/French text in **Traduction texte**;
+3. choose `🇲🇦 Darija`, `🇪🇬 Egyptian`, or Modern Standard Arabic;
+4. click **Traduire → insérer**.
+
+The translated text is inserted automatically at the cursor position. You can also press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (macOS).
+
+This feature uses the same translation provider selector as speech conversion. Groq remains the default, Gemini is a manual fallback, and NLLB remains available locally. NLLB needs an explicit source language; `Auto` is supported by Groq/Gemini.
+
 ## Saved Arabic phrases
 
 Full mode contains a personal quick-phrase manager.
@@ -258,5 +287,6 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Drag-and-drop-style repositioning with last position remembered across sites.
 - Ranked personal Arabic quick phrases with local usage statistics.
 - Recording cancellation before any transcription request is sent.
+- Typed English/French text translation to Darija, Egyptian Arabic, or MSA with automatic insertion into the active page field.
 
 Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
