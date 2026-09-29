@@ -13,7 +13,7 @@ export function buildTranslationPrompt(text, targetLanguage) {
   }
 
   return [
-    `Convert the following transcript into ${target}.`,
+    `Convert the following text into ${target}.`,
     "Preserve the complete meaning, intent, names, numbers and tone.",
     "Use natural everyday wording for dialect targets, not Modern Standard Arabic disguised as dialect.",
     "Keep technical terms, brand names and unavoidable French/English loanwords when that is how a native speaker would naturally say them.",
