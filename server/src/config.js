@@ -28,9 +28,13 @@ export const config = {
 
   translation: {
     enabled: readBoolean("TRANSLATION_ENABLED", true),
-    defaultProvider: process.env.TRANSLATION_PROVIDER || "nllb",
+    defaultProvider: process.env.TRANSLATION_PROVIDER || "groq",
     dailyRequestLimit: readNumber("DAILY_TRANSLATION_REQUEST_LIMIT", 50),
     monthlyRequestLimit: readNumber("MONTHLY_TRANSLATION_REQUEST_LIMIT", 500),
+    groq: {
+      apiKey: process.env.GROQ_API_KEY || "",
+      model: process.env.GROQ_TRANSLATION_MODEL || "qwen/qwen3.8-27b",
+    },
     gemini: {
       model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
     },
@@ -81,6 +85,10 @@ export function isProviderConfigured(name) {
 
 export function isTranslationConfigured(name) {
   if (!config.translation.enabled) return false;
+
+  if (name === "groq") {
+    return Boolean(config.translation.groq.apiKey);
+  }
 
   if (name === "nllb") {
     return config.translation.nllb.enabled;
