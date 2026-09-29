@@ -95,6 +95,16 @@ Choose:
 4. when conversion is needed, translation engine;
 5. click **🎤**, speak, then click **■**.
 
+## Display modes and positioning
+
+The floating widget has three display modes:
+
+- **Full** `▣`: shows all controls with labels — transcription provider, spoken language, output language, translation provider, microphone and status.
+- **Medium** `▬`: shows the daily controls — spoken language, output language, microphone and status. The saved provider/translator selections stay active in the background.
+- **Reduced** `●`: keeps only the microphone plus the small mode switcher.
+
+Drag the widget from its header/grip to move it anywhere on the page. The extension stores both the selected display mode and the last position in `chrome.storage.local`, so they are restored on the next page/site. If the browser window becomes smaller, the widget is automatically clamped back inside the viewport.
+
 ## Translation providers
 
 ### Groq Cloud — default
@@ -214,5 +224,7 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Textareas, normal text inputs, and `contenteditable` editors.
 - One explicit STT provider request per recording.
 - Optional dialect/language conversion with Groq, Gemini, or local NLLB.
+- Persistent Full / Medium / Reduced widget modes.
+- Drag-and-drop-style repositioning with last position remembered across sites.
 
 Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
