@@ -26,6 +26,7 @@ jobs:
           node --check src/config.js
           node --check src/usage.js
           node --check src/translate.js
+          node --check src/translation/nllb.js
           node --check src/providers/deepgram.js
           node --check src/providers/gemini.js
           node --check src/providers/chirp.js
