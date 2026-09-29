@@ -1,45 +1,151 @@
+#stt-dictation-widget,
+#stt-dictation-widget * {
+  box-sizing: border-box;
+}
+
 #stt-dictation-widget {
   position: fixed;
   right: 18px;
   bottom: 18px;
   z-index: 2147483647;
   display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 7px;
+  flex-direction: column;
   border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-  font: 12px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2);
+  font: 12px/1.25 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #111;
+  overflow: visible;
+  user-select: none;
+  max-width: calc(100vw - 16px);
 }
 
 #stt-dictation-widget.stt-visible {
   display: flex;
 }
 
+#stt-dictation-widget.stt-dragging {
+  opacity: 0.96;
+}
+
+.stt-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 7px 5px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  touch-action: none;
+}
+
+.stt-widget-header:active,
+#stt-dictation-widget.stt-dragging .stt-widget-header {
+  cursor: grabbing;
+}
+
+.stt-widget-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.stt-drag-grip {
+  color: #8b8b8b;
+  font-size: 12px;
+  letter-spacing: -2px;
+  transform: rotate(90deg);
+}
+
+.stt-widget-title {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.stt-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stt-mode-button {
+  width: 25px;
+  height: 23px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font: 12px/23px system-ui, sans-serif;
+}
+
+.stt-mode-button:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.stt-mode-button.stt-mode-active {
+  background: #111;
+  color: white;
+}
+
+.stt-widget-body {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.stt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stt-field[hidden] {
+  display: none !important;
+}
+
+.stt-field label {
+  color: #666;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 #stt-dictation-widget select {
-  height: 30px;
-  max-width: 120px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #d0d0d0;
+  border-radius: 9px;
   background: white;
-  padding: 0 6px;
+  padding: 0 9px;
   font: inherit;
   color: inherit;
 }
 
+.stt-action-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
 #stt-record-button {
-  width: 34px;
-  height: 34px;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   cursor: pointer;
   background: #111;
   color: white;
-  font-size: 17px;
-  line-height: 34px;
+  font-size: 18px;
+  line-height: 38px;
 }
 
 #stt-record-button.stt-recording {
@@ -48,17 +154,144 @@
 }
 
 #stt-record-button:disabled,
-#stt-dictation-widget select:disabled {
+#stt-dictation-widget select:disabled,
+.stt-mode-button:disabled {
   opacity: 0.55;
   cursor: wait;
 }
 
 #stt-status {
-  max-width: 180px;
+  min-width: 0;
   color: #444;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Full: everything is visible, labeled and roomy. */
+#stt-dictation-widget[data-mode="full"] {
+  width: min(430px, calc(100vw - 16px));
+}
+
+#stt-dictation-widget[data-mode="full"] .stt-widget-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#stt-dictation-widget[data-mode="full"] .stt-action-row {
+  grid-column: 1 / -1;
+}
+
+#stt-dictation-widget[data-mode="full"] #stt-status {
+  max-width: 340px;
+}
+
+/* Medium: common daily controls only. Provider/translator keep their saved values. */
+#stt-dictation-widget[data-mode="medium"] {
+  width: min(390px, calc(100vw - 16px));
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-widget-title {
+  display: none;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-widget-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-full-only {
+  display: none !important;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-common-control {
+  flex: 1 1 0;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-field label {
+  display: none;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-action-row {
+  flex: 0 0 auto;
+}
+
+#stt-dictation-widget[data-mode="medium"] #stt-status {
+  max-width: 120px;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-widget-header {
+  min-height: 30px;
+  padding-block: 4px;
+}
+
+/* Compact: microphone first; mode buttons remain available to expand again. */
+#stt-dictation-widget[data-mode="compact"] {
+  width: auto;
+  min-width: 108px;
+  border-radius: 18px;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-title {
+  display: none;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-header {
+  min-height: 28px;
+  padding: 3px 5px 2px 8px;
+  border-bottom: 0;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-drag-grip {
+  font-size: 11px;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-mode-button {
+  width: 21px;
+  height: 20px;
+  line-height: 20px;
+  font-size: 10px;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-body {
+  display: flex;
+  justify-content: center;
+  padding: 2px 7px 7px;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-field {
+  display: none !important;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-action-row {
+  justify-content: center;
+}
+
+#stt-dictation-widget[data-mode="compact"] #stt-record-button {
+  width: 42px;
+  height: 42px;
+  line-height: 42px;
+  font-size: 19px;
+}
+
+#stt-dictation-widget[data-mode="compact"] #stt-status {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
+  display: none;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.94);
+  color: white;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+}
+
+#stt-dictation-widget[data-mode="compact"] #stt-status:not(:empty) {
+  display: block;
 }
 
 @keyframes stt-pulse {
@@ -66,20 +299,60 @@
   to { transform: scale(1.08); }
 }
 
+@media (max-width: 520px) {
+  #stt-dictation-widget[data-mode="full"] {
+    width: calc(100vw - 16px);
+  }
+
+  #stt-dictation-widget[data-mode="full"] .stt-widget-body {
+    grid-template-columns: 1fr;
+  }
+
+  #stt-dictation-widget[data-mode="full"] .stt-action-row {
+    grid-column: 1;
+  }
+
+  #stt-dictation-widget[data-mode="medium"] {
+    width: min(340px, calc(100vw - 16px));
+  }
+
+  #stt-dictation-widget[data-mode="medium"] #stt-status {
+    display: none;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   #stt-dictation-widget {
-    background: rgba(30, 30, 30, 0.97);
+    background: rgba(30, 30, 30, 0.98);
     color: #f5f5f5;
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .stt-widget-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .stt-mode-button {
+    color: #bbb;
+  }
+
+  .stt-mode-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .stt-mode-button.stt-mode-active {
+    background: #f5f5f5;
+    color: #111;
+  }
+
+  .stt-field label,
+  #stt-status {
+    color: #ddd;
   }
 
   #stt-dictation-widget select {
     background: #222;
     color: #f5f5f5;
     border-color: #555;
-  }
-
-  #stt-status {
-    color: #ddd;
   }
 }
