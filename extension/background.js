@@ -1,7 +1,19 @@
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:3737";
 
+const ROUTES = {
+  STT_TRANSCRIBE: {
+    path: "/v1/transcribe",
+    fallbackError: "Transcription failed.",
+  },
+  TEXT_TRANSLATE: {
+    path: "/v1/translate",
+    fallbackError: "Translation failed.",
+  },
+};
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "STT_TRANSCRIBE") {
+  const route = ROUTES[message?.type];
+  if (!route) {
     return false;
   }
 
@@ -10,14 +22,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const { backendUrl = DEFAULT_BACKEND_URL } =
         await chrome.storage.local.get("backendUrl");
 
-      const response = await fetch(`${backendUrl.replace(/\/$/, "")}/v1/transcribe`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-STT-Client": "browser-extension-v1",
+      const response = await fetch(
+        `${backendUrl.replace(/\/$/, "")}${route.path}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-STT-Client": "browser-extension-v1",
+          },
+          body: JSON.stringify(message.payload),
         },
-        body: JSON.stringify(message.payload),
-      });
+      );
 
       const body = await response.json();
 
@@ -29,7 +44,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     } catch (error) {
       sendResponse({
         ok: false,
-        error: error instanceof Error ? error.message : "Transcription failed.",
+        error: error instanceof Error ? error.message : route.fallbackError,
       });
     }
   })();
