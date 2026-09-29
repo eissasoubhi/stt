@@ -8,10 +8,11 @@ The current version supports three transcription providers:
 - **Gemini API / Gemini 3.5 Transcribe** — dedicated audio transcription with automatic language detection and code-switching.
 - **Google Cloud Speech-to-Text V2 / Chirp 3** — `chirp_3`, including `ar-MA`, `ar-EG` and automatic language detection.
 
-For the optional second step — translating/adapting the transcript into another language or dialect — there are now two engines:
+For the optional second step — translating/adapting the transcript into another language or dialect — there are three engines:
 
-- **NLLB-200 distilled 600M, local** — free, no API key, no per-request billing.
-- **Gemini** — cloud API option.
+- **Groq Cloud + Qwen 3.8 27B** — default cloud option.
+- **Gemini** — cloud fallback you can switch to manually.
+- **NLLB-200 distilled 600M** — local/free fallback.
 
 Examples:
 
@@ -29,10 +30,11 @@ This project is intentionally conservative about paid API usage:
 
 - no background recording;
 - no automatic STT-provider fallback;
-- no automatic cross-provider retry;
+- no automatic translation-provider fallback;
+- no automatic retry from Groq to Gemini;
 - no translation when output is **Same**;
 - no translation when the selected source and output are already the same language/dialect;
-- local NLLB is the default translation engine;
+- Groq is the default translation engine;
 - maximum recording duration;
 - daily and monthly local audio caps;
 - per-provider monthly caps;
@@ -41,7 +43,7 @@ This project is intentionally conservative about paid API usage:
 - Gemini disabled by default in `.env.example`;
 - API keys stay in the local server `.env`, never in the browser extension.
 
-These controls reduce accidental spend, but they do **not** replace provider-side billing controls.
+If Groq is unavailable or its free-tier limit is reached, the request fails visibly. You can then manually select **Gemini** in the extension. This avoids surprise paid fallback traffic.
 
 ## Quick start
 
@@ -55,20 +57,21 @@ npm test
 npm start
 ```
 
-Then edit `server/.env` and add at least one transcription provider credential.
+Then edit `server/.env`.
 
-For a Deepgram-only start:
+Recommended starting configuration:
 
 ```env
 DEEPGRAM_ENABLED=true
-DEEPGRAM_API_KEY=your-key
+DEEPGRAM_API_KEY=your-deepgram-key
 
 GEMINI_ENABLED=false
 CHIRP_ENABLED=false
 
 TRANSLATION_ENABLED=true
-TRANSLATION_PROVIDER=nllb
-NLLB_ENABLED=true
+TRANSLATION_PROVIDER=groq
+GROQ_API_KEY=your-groq-key
+GROQ_TRANSLATION_MODEL=qwen/qwen3.8-27b
 ```
 
 The gateway listens only on `127.0.0.1:3737` by default.
@@ -92,33 +95,54 @@ Choose:
 4. when conversion is needed, translation engine;
 5. click **🎤**, speak, then click **■**.
 
-## Free local translation with NLLB
+## Translation providers
 
-The default translation engine is:
+### Groq Cloud — default
 
-```text
-Xenova/nllb-200-distilled-600M
+Set:
+
+```env
+TRANSLATION_PROVIDER=groq
+GROQ_API_KEY=...
+GROQ_TRANSLATION_MODEL=qwen/qwen3.8-27b
 ```
 
-It runs locally through Transformers.js/ONNX. No translation API key or payment method is needed.
+The backend calls Groq's OpenAI-compatible Chat Completions endpoint.
 
-The model has direct language codes for the dialects used by this project:
+The extension shows:
 
 ```text
-Moroccan Arabic  ary_Arab
-Egyptian Arabic  arz_Arab
-Standard Arabic  arb_Arab
-French           fra_Latn
-English          eng_Latn
+☁️ Groq Cloud · Free
+✨ Gemini
+🌐 NLLB local · free
 ```
 
-The model files are downloaded on first use and then cached locally. The first translation therefore takes longer than subsequent ones.
+No automatic fallback occurs. If you want Gemini, select it explicitly.
 
-NLLB needs to know the source language. When using **NLLB local**, choose an explicit spoken language/dialect instead of **Auto** when translation is required.
+### Gemini — manual fallback
 
-NLLB-200 distilled 600M is licensed CC-BY-NC-4.0. Check the model license before using it for a commercial product.
+Set:
 
-### Important: no translation is needed for Darija → Darija
+```env
+GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-3.8-flash
+```
+
+You do not need to enable Gemini as an STT provider just to use its key for translation. Select **Gemini** from the translation selector when you want to compare quality.
+
+### Local NLLB
+
+Set:
+
+```env
+NLLB_ENABLED=true
+NLLB_MODEL=Xenova/nllb-200-distilled-600M
+NLLB_DTYPE=q8
+```
+
+No API key is required. NLLB needs an explicit source language when translation is required, so avoid **Auto** with this translation provider.
+
+## Important: no translation is needed for Darija → Darija
 
 If you select:
 
@@ -127,24 +151,18 @@ Spoken: Moroccan Darija
 Output: Moroccan Darija
 ```
 
-the application now returns the Deepgram transcript directly. It does **not** call Gemini or NLLB.
+the application returns the Deepgram transcript directly. It does not call Groq, Gemini, or NLLB.
 
-## Provider configuration
+## STT provider configuration
 
 ### Deepgram Nova-3
-
-Create a Deepgram API key and set:
 
 ```env
 DEEPGRAM_API_KEY=...
 DEEPGRAM_ENABLED=true
 ```
 
-The known-dialect selections map to their language codes.
-
 ### Gemini API
-
-Gemini is optional:
 
 ```env
 GEMINI_API_KEY=...
@@ -153,34 +171,9 @@ GEMINI_MODEL=gemini-3.5-transcribe
 GEMINI_MODE=SMART
 ```
 
-To use Gemini for text conversion instead of local NLLB:
-
-```env
-TRANSLATION_PROVIDER=gemini
-GEMINI_TEXT_MODEL=gemini-3.8-flash
-```
-
-You can also choose **Gemini** from the translation-engine selector in the extension.
-
-### Local NLLB
-
-Defaults:
-
-```env
-TRANSLATION_ENABLED=true
-TRANSLATION_PROVIDER=nllb
-NLLB_ENABLED=true
-NLLB_MODEL=Xenova/nllb-200-distilled-600M
-NLLB_DTYPE=q8
-```
-
-No API key is required.
-
 ### Chirp 3
 
-Chirp 3 uses Google Cloud Speech-to-Text V2 and is **separate from Gemini API billing**.
-
-Enable the Speech-to-Text API in your Google Cloud project, configure Application Default Credentials, then set:
+Chirp 3 uses Google Cloud Speech-to-Text V2 and is separate from Gemini API billing.
 
 ```env
 CHIRP_ENABLED=true
@@ -220,6 +213,6 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Short dictation recordings (up to 60 seconds by default).
 - Textareas, normal text inputs, and `contenteditable` editors.
 - One explicit STT provider request per recording.
-- Optional dialect/language conversion with either local NLLB or Gemini.
+- Optional dialect/language conversion with Groq, Gemini, or local NLLB.
 
 Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
