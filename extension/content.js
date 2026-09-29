@@ -33,8 +33,9 @@
       <option value="en">→ English</option>
     </select>
     <select id="stt-translation-provider" aria-label="Translation provider" title="Translation engine">
-      <option value="nllb">🌐 NLLB local · free</option>
+      <option value="groq">☁️ Groq Cloud · Free</option>
       <option value="gemini">✨ Gemini</option>
+      <option value="nllb">🌐 NLLB local · free</option>
     </select>
     <button id="stt-record-button" type="button" title="Start dictation">🎤</button>
     <span id="stt-status" aria-live="polite"></span>
@@ -67,7 +68,7 @@
       if (stored.provider) providerSelect.value = stored.provider;
       if (stored.language) languageSelect.value = stored.language;
       if (stored.outputLanguage) outputLanguageSelect.value = stored.outputLanguage;
-      translationProviderSelect.value = stored.translationProvider || "nllb";
+      translationProviderSelect.value = stored.translationProvider || "groq";
       updateTranslationProviderVisibility();
     });
 
