@@ -151,7 +151,6 @@
 
   document.documentElement.appendChild(widget);
 
-  const header = widget.querySelector("#stt-widget-header");
   const providerSelect = widget.querySelector("#stt-provider");
   const languageSelect = widget.querySelector("#stt-language");
   const outputLanguageSelect = widget.querySelector("#stt-output-language");
