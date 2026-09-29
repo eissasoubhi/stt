@@ -116,7 +116,8 @@
 }
 
 #stt-dictation-widget select,
-#stt-phrase-input {
+#stt-phrase-input,
+#stt-text-translation-input {
   width: 100%;
   min-width: 0;
   height: 34px;
@@ -130,6 +131,16 @@
 
 #stt-phrase-input {
   user-select: text;
+}
+
+#stt-text-translation-input {
+  min-height: 58px;
+  height: auto;
+  resize: vertical;
+  padding: 8px 9px;
+  line-height: 1.35;
+  user-select: text;
+  font: inherit;
 }
 
 .stt-action-row {
@@ -187,6 +198,44 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Typed text translation */
+.stt-text-translation {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stt-text-translation-heading {
+  font-weight: 700;
+}
+
+.stt-text-translation-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#stt-text-translate-button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+#stt-text-translate-button:hover {
+  opacity: 0.9;
+}
+
+#stt-text-translate-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 /* Saved Arabic phrases */
@@ -341,6 +390,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+#stt-dictation-widget[data-mode="full"] .stt-text-translation,
 #stt-dictation-widget[data-mode="full"] .stt-phrases-section,
 #stt-dictation-widget[data-mode="full"] .stt-action-row {
   grid-column: 1 / -1;
@@ -375,13 +425,39 @@
   flex: 1 1 130px;
 }
 
+#stt-dictation-widget[data-mode="medium"] .stt-text-translation {
+  flex: 1 0 100%;
+  order: 2;
+  grid-template-columns: minmax(0, 1fr) 130px auto;
+  align-items: stretch;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-text-translation-heading,
+#stt-dictation-widget[data-mode="medium"] #stt-text-source-language {
+  display: none !important;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-text-translation-controls {
+  display: contents;
+}
+
+#stt-dictation-widget[data-mode="medium"] #stt-text-translation-input {
+  min-height: 34px;
+  height: 34px;
+  resize: none;
+}
+
+#stt-dictation-widget[data-mode="medium"] #stt-text-translate-button {
+  min-width: 112px;
+}
+
 #stt-dictation-widget[data-mode="medium"] .stt-field label {
   display: none;
 }
 
 #stt-dictation-widget[data-mode="medium"] .stt-phrases-section {
   flex: 1 0 100%;
-  order: 2;
+  order: 3;
 }
 
 #stt-dictation-widget[data-mode="medium"] .stt-phrase-list {
@@ -414,7 +490,7 @@
 
 #stt-dictation-widget[data-mode="medium"] .stt-action-row {
   flex: 0 0 auto;
-  order: 1;
+  order: 4;
 }
 
 #stt-dictation-widget[data-mode="medium"] #stt-status {
@@ -461,6 +537,7 @@
 }
 
 #stt-dictation-widget[data-mode="compact"] .stt-field,
+#stt-dictation-widget[data-mode="compact"] .stt-text-translation,
 #stt-dictation-widget[data-mode="compact"] .stt-phrases-section {
   display: none !important;
 }
@@ -513,9 +590,18 @@
     grid-template-columns: 1fr;
   }
 
+  #stt-dictation-widget[data-mode="full"] .stt-text-translation,
   #stt-dictation-widget[data-mode="full"] .stt-phrases-section,
   #stt-dictation-widget[data-mode="full"] .stt-action-row {
     grid-column: 1;
+  }
+
+  #stt-dictation-widget[data-mode="medium"] .stt-text-translation {
+    grid-template-columns: 1fr;
+  }
+
+  #stt-dictation-widget[data-mode="medium"] #stt-text-translation-input {
+    height: 48px;
   }
 
   #stt-dictation-widget[data-mode="medium"] {
@@ -558,6 +644,7 @@
 
   #stt-dictation-widget select,
   #stt-phrase-input,
+  #stt-text-translation-input,
   .stt-phrase-form button,
   .stt-phrase-icon-button {
     background: #222;
