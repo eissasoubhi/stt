@@ -99,11 +99,41 @@ Choose:
 
 The floating widget has three display modes:
 
-- **Full** `▣`: shows all controls with labels — transcription provider, spoken language, output language, translation provider, microphone and status.
-- **Medium** `▬`: shows the daily controls — spoken language, output language, microphone and status. The saved provider/translator selections stay active in the background.
-- **Reduced** `●`: keeps only the microphone plus the small mode switcher.
+- **Full** `▣`: shows all controls with labels, the complete saved-phrase manager, microphone controls and status.
+- **Medium** `▬`: shows the daily controls plus the **5 most-used saved phrases**.
+- **Reduced** `●`: keeps only the microphone/cancel controls plus the small mode switcher.
 
 Drag the widget from its header/grip to move it anywhere on the page. The extension stores both the selected display mode and the last position in `chrome.storage.local`, so they are restored on the next page/site. If the browser window becomes smaller, the widget is automatically clamped back inside the viewport.
+
+## Saved Arabic phrases
+
+Full mode contains a personal quick-phrase manager.
+
+- Add up to **100 phrases**.
+- Phrases must contain Arabic-script text and reject Latin-letter phrases.
+- Click a phrase to insert it immediately into the last active page text field.
+- Usage is counted locally every time a phrase is inserted.
+- Phrases are automatically ranked by **usage count**, then by **most recent use**.
+- Full mode shows all saved phrases with edit/delete actions.
+- Medium mode shows only the top 5 phrases.
+- Phrase text and usage statistics are stored locally in `chrome.storage.local`; they are not sent to Deepgram, Groq, Gemini, or the local gateway.
+
+Example ranking:
+
+```text
+السلام عليكم        34 uses
+كيف حالك؟           21 uses
+شكراً جزيلاً         9 uses
+```
+
+## Cancel a voice recording
+
+While recording:
+
+- **■** stops and sends the audio for transcription.
+- **✕** cancels the recording completely.
+
+Cancelling discards the captured chunks locally and does **not** call the transcription API, so a cancelled recording does not consume Deepgram/Gemini/Chirp transcription usage.
 
 ## Translation providers
 
@@ -226,5 +256,7 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Optional dialect/language conversion with Groq, Gemini, or local NLLB.
 - Persistent Full / Medium / Reduced widget modes.
 - Drag-and-drop-style repositioning with last position remembered across sites.
+- Ranked personal Arabic quick phrases with local usage statistics.
+- Recording cancellation before any transcription request is sent.
 
 Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.
