@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Arabic Voice Dictation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Dictate Arabic, Moroccan Darija or Egyptian Arabic into text fields using Deepgram, Gemini or Chirp 3.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "http://127.0.0.1:3737/*",
     "http://localhost:3737/*"
@@ -13,9 +15,15 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ]
