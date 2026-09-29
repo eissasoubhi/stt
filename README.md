@@ -97,13 +97,29 @@ Choose:
 
 ## Display modes and positioning
 
-The floating widget has three display modes:
+The widget has three display modes:
 
 - **Full** `▣`: shows all controls with labels, the complete saved-phrase manager, microphone controls and status.
 - **Medium** `▬`: shows the daily controls plus the **5 most-used saved phrases**.
 - **Reduced** `●`: keeps only the microphone/cancel controls plus the small mode switcher.
 
-Drag the widget from its header/grip to move it anywhere on the page. The extension stores both the selected display mode and the last position in `chrome.storage.local`, so they are restored on the next page/site. If the browser window becomes smaller, the widget is automatically clamped back inside the viewport.
+It also has two positioning modes:
+
+- **Floating**: drag the widget anywhere on the page. Its last position is remembered.
+- **Attached** `📎`: the widget follows the active text field and is positioned intelligently just **above** it. If there is not enough room above, it moves below the field instead.
+
+Click the paperclip button in the widget header to switch between floating and attached modes. The selected positioning mode is remembered in `chrome.storage.local`.
+
+In attached mode:
+
+- focusing another text field automatically moves the widget to that field;
+- scrolling and resizing keep the widget aligned with the field;
+- resizing the text field is tracked;
+- the widget is centered relative to the field and kept inside the visible viewport;
+- a small pointer visually connects the widget to the target field;
+- dragging the widget immediately detaches it and switches back to floating mode.
+
+Both the selected display mode and positioning mode persist across pages/sites.
 
 ## Typed text → Arabic translation
 
@@ -284,6 +300,7 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - One explicit STT provider request per recording.
 - Optional dialect/language conversion with Groq, Gemini, or local NLLB.
 - Persistent Full / Medium / Reduced widget modes.
+- Smart floating / attached-to-field positioning mode with automatic above/below placement.
 - Drag-and-drop-style repositioning with last position remembered across sites.
 - Ranked personal Arabic quick phrases with local usage statistics.
 - Recording cancellation before any transcription request is sent.
