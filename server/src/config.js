@@ -26,6 +26,13 @@ export const config = {
   dailyAudioMinutesLimit: readNumber("DAILY_AUDIO_MINUTES_LIMIT", 30),
   monthlyAudioMinutesLimit: readNumber("MONTHLY_AUDIO_MINUTES_LIMIT", 300),
 
+  translation: {
+    enabled: readBoolean("TRANSLATION_ENABLED", true),
+    model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
+    dailyRequestLimit: readNumber("DAILY_TRANSLATION_REQUEST_LIMIT", 50),
+    monthlyRequestLimit: readNumber("MONTHLY_TRANSLATION_REQUEST_LIMIT", 500),
+  },
+
   providers: {
     deepgram: {
       enabled: readBoolean("DEEPGRAM_ENABLED", true),
@@ -61,4 +68,11 @@ export function isProviderConfigured(name) {
   }
 
   return false;
+}
+
+export function isTranslationConfigured() {
+  return (
+    config.translation.enabled &&
+    Boolean(config.providers.gemini.apiKey)
+  );
 }
