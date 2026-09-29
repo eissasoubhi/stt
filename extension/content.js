@@ -1,9 +1,6 @@
 (() => {
   const MAX_RECORDING_MS = 60_000;
   const DISPLAY_MODES = new Set(["full", "medium", "compact"]);
-  const PLACEMENT_MODES = new Set(["floating", "attached"]);
-  const VIEWPORT_MARGIN = 8;
-  const ATTACH_GAP = 10;
   const MAX_SAVED_PHRASES = 100;
   const MAX_PHRASE_LENGTH = 240;
   const ARABIC_SCRIPT_RE = /\p{Script=Arabic}/u;
@@ -17,11 +14,6 @@
   let stopTimer = null;
   let recordingCancelled = false;
   let currentMode = "medium";
-  let currentPlacementMode = "floating";
-  let hasCustomPosition = false;
-  let attachFrame = null;
-  let observedTarget = null;
-  let dragState = null;
   let savedPhrases = [];
   let editingPhraseId = null;
 
@@ -29,33 +21,21 @@
   widget.id = "stt-dictation-widget";
   widget.dataset.mode = currentMode;
   widget.innerHTML = `
-    <div id="stt-widget-header" class="stt-widget-header" title="Drag to move">
+    <div id="stt-widget-header" class="stt-widget-header">
       <div class="stt-widget-brand">
-        <span class="stt-drag-grip" aria-hidden="true">⋮⋮</span>
         <span class="stt-widget-title">Voice STT</span>
       </div>
 
-      <div class="stt-header-actions">
-        <button
-          id="stt-attach-toggle"
-          type="button"
-          class="stt-attach-button"
-          title="Attach above the active text field"
-          aria-label="Attach above the active text field"
-          aria-pressed="false"
-        >📎</button>
-
-        <div class="stt-mode-switcher" role="group" aria-label="Display mode">
-          <button type="button" class="stt-mode-button" data-stt-mode="full" title="Full mode" aria-label="Full mode">▣</button>
-          <button type="button" class="stt-mode-button" data-stt-mode="medium" title="Medium mode" aria-label="Medium mode">▬</button>
-          <button type="button" class="stt-mode-button" data-stt-mode="compact" title="Reduced mode" aria-label="Reduced mode">●</button>
-        </div>
+      <div class="stt-mode-switcher" role="group" aria-label="Display mode">
+        <button type="button" class="stt-mode-button" data-stt-mode="full" title="Mode complet" aria-label="Mode complet">▣</button>
+        <button type="button" class="stt-mode-button" data-stt-mode="medium" title="Mode moyen" aria-label="Mode moyen">▬</button>
+        <button type="button" class="stt-mode-button" data-stt-mode="compact" title="Mode réduit" aria-label="Mode réduit">●</button>
       </div>
     </div>
 
     <div class="stt-widget-body">
       <div class="stt-field stt-full-only">
-        <label for="stt-provider">Transcription</label>
+        <label for="stt-provider">Moteur STT</label>
         <select id="stt-provider" aria-label="STT provider">
           <option value="deepgram">Deepgram</option>
           <option value="gemini">Gemini</option>
@@ -64,7 +44,7 @@
       </div>
 
       <div class="stt-field stt-common-control">
-        <label for="stt-language">Spoken</label>
+        <label for="stt-language">Langue parlée</label>
         <select id="stt-language" aria-label="Spoken language">
           <option value="auto">🎙️ Auto</option>
           <option value="ar-MA">🎙️ 🇲🇦 Darija</option>
@@ -76,7 +56,7 @@
       </div>
 
       <div class="stt-field stt-common-control">
-        <label for="stt-output-language">Output</label>
+        <label for="stt-output-language">Texte final</label>
         <select id="stt-output-language" aria-label="Output language">
           <option value="same">→ Same</option>
           <option value="ar-MA">→ 🇲🇦 Darija</option>
@@ -88,7 +68,7 @@
       </div>
 
       <div id="stt-translation-field" class="stt-field stt-full-only">
-        <label for="stt-translation-provider">Translation</label>
+        <label for="stt-translation-provider">Moteur traduction</label>
         <select id="stt-translation-provider" aria-label="Translation provider" title="Translation engine">
           <option value="groq">☁️ Groq Cloud · Free</option>
           <option value="gemini">✨ Gemini</option>
@@ -96,36 +76,44 @@
         </select>
       </div>
 
-      <section id="stt-text-translation" class="stt-text-translation" aria-label="Typed text translation">
-        <div class="stt-text-translation-heading stt-full-only">Traduction texte</div>
+      <section id="stt-text-translation" class="stt-text-translation" aria-label="Traduction de texte">
+        <div class="stt-text-translation-heading">Traduction texte</div>
 
-        <div class="stt-text-translation-controls">
-          <select id="stt-text-source-language" class="stt-full-only" aria-label="Typed text source language">
-            <option value="auto">Auto</option>
-            <option value="en">🇬🇧 English</option>
-            <option value="fr">🇫🇷 Français</option>
-            <option value="ar">العربية</option>
-            <option value="ar-MA">🇲🇦 Darija</option>
-            <option value="ar-EG">🇪🇬 Egyptian</option>
-          </select>
+        <div class="stt-text-language-flow">
+          <div class="stt-text-language-field">
+            <label for="stt-text-source-language">Langue source</label>
+            <select id="stt-text-source-language" aria-label="Langue source">
+              <option value="auto">✨ Détection automatique</option>
+              <option value="en">🇬🇧 Anglais</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="ar">العربية الفصحى</option>
+              <option value="ar-MA">🇲🇦 Darija</option>
+              <option value="ar-EG">🇪🇬 Arabe égyptien</option>
+            </select>
+          </div>
 
-          <select id="stt-text-target-language" aria-label="Typed text target language">
-            <option value="ar-MA">→ 🇲🇦 Darija</option>
-            <option value="ar-EG">→ 🇪🇬 Egyptian</option>
-            <option value="ar">→ العربية الفصحى</option>
-          </select>
+          <div class="stt-text-language-arrow" aria-hidden="true">→</div>
+
+          <div class="stt-text-language-field">
+            <label for="stt-text-target-language">Traduire vers</label>
+            <select id="stt-text-target-language" aria-label="Langue de destination">
+              <option value="ar-MA">🇲🇦 Darija marocaine</option>
+              <option value="ar-EG">🇪🇬 Arabe égyptien</option>
+              <option value="ar">العربية الفصحى</option>
+            </select>
+          </div>
         </div>
 
         <textarea
           id="stt-text-translation-input"
           rows="2"
           maxlength="4000"
-          placeholder="Type in English or French…"
-          aria-label="Text to translate"
+          placeholder="Écrivez ici en anglais, français ou arabe…"
+          aria-label="Texte à traduire"
         ></textarea>
 
-        <button id="stt-text-translate-button" type="button" title="Translate and insert into the active text field">
-          Traduire → insérer
+        <button id="stt-text-translate-button" type="button" title="Traduire puis insérer dans le champ actif">
+          Traduire et insérer
         </button>
       </section>
 
@@ -162,10 +150,8 @@
   `;
 
   document.documentElement.appendChild(widget);
-  widget.classList.add("stt-visible");
 
   const header = widget.querySelector("#stt-widget-header");
-  const attachToggle = widget.querySelector("#stt-attach-toggle");
   const providerSelect = widget.querySelector("#stt-provider");
   const languageSelect = widget.querySelector("#stt-language");
   const outputLanguageSelect = widget.querySelector("#stt-output-language");
@@ -383,7 +369,7 @@
     await savePhrases();
     resetPhraseEditor();
     renderPhrases();
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    attachWidgetToTarget();
   }
 
   function startPhraseEdit(id) {
@@ -405,7 +391,7 @@
     if (editingPhraseId === id) resetPhraseEditor();
     await savePhrases();
     renderPhrases();
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    attachWidgetToTarget();
   }
 
   async function usePhrase(id) {
@@ -460,180 +446,38 @@
     }
   });
 
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), Math.max(min, max));
-  }
+  function getInlineAnchor(element) {
+    if (!element?.isConnected) return null;
 
-  function getCurrentPosition() {
-    const rect = widget.getBoundingClientRect();
-    return {
-      left: Math.round(rect.left),
-      top: Math.round(rect.top),
-    };
-  }
-
-  function applyPosition(position) {
-    if (
-      !position ||
-      !Number.isFinite(position.left) ||
-      !Number.isFinite(position.top)
-    ) {
-      return;
-    }
-
-    hasCustomPosition = true;
-    widget.style.right = "auto";
-    widget.style.bottom = "auto";
-    widget.style.left = `${position.left}px`;
-    widget.style.top = `${position.top}px`;
-  }
-
-  function clampWidgetToViewport({ persist = false } = {}) {
-    if (!hasCustomPosition || !widget.classList.contains("stt-visible")) {
-      return;
-    }
-
-    const rect = widget.getBoundingClientRect();
-    const maxLeft = window.innerWidth - rect.width - VIEWPORT_MARGIN;
-    const maxTop = window.innerHeight - rect.height - VIEWPORT_MARGIN;
-
-    const left = clamp(rect.left, VIEWPORT_MARGIN, maxLeft);
-    const top = clamp(rect.top, VIEWPORT_MARGIN, maxTop);
-
-    widget.style.left = `${Math.round(left)}px`;
-    widget.style.top = `${Math.round(top)}px`;
-
-    if (persist) {
-      chrome.storage.local.set({
-        widgetPosition: {
-          left: Math.round(left),
-          top: Math.round(top),
-        },
-      });
-    }
-  }
-
-  function hasAttachTarget() {
-    return Boolean(
-      target &&
-      target.isConnected &&
-      !widget.contains(target) &&
-      isEditable(target)
-    );
-  }
-
-  function positionWidgetAttached() {
-    if (
-      currentPlacementMode !== "attached" ||
-      !widget.classList.contains("stt-visible") ||
-      !hasAttachTarget()
-    ) {
-      return;
-    }
-
-    const targetRect = target.getBoundingClientRect();
-    const widgetRect = widget.getBoundingClientRect();
-
-    const maxLeft = window.innerWidth - widgetRect.width - VIEWPORT_MARGIN;
-    const centeredLeft =
-      targetRect.left + (targetRect.width - widgetRect.width) / 2;
-    const left = clamp(centeredLeft, VIEWPORT_MARGIN, maxLeft);
-
-    const aboveTop = targetRect.top - widgetRect.height - ATTACH_GAP;
-    const belowTop = targetRect.bottom + ATTACH_GAP;
-    const fitsAbove = aboveTop >= VIEWPORT_MARGIN;
-    const fitsBelow =
-      belowTop + widgetRect.height <= window.innerHeight - VIEWPORT_MARGIN;
-
-    let side = "above";
-    let top = aboveTop;
-
-    if (!fitsAbove && fitsBelow) {
-      side = "below";
-      top = belowTop;
-    } else if (!fitsAbove && !fitsBelow) {
-      const spaceAbove = Math.max(0, targetRect.top - VIEWPORT_MARGIN);
-      const spaceBelow = Math.max(
-        0,
-        window.innerHeight - targetRect.bottom - VIEWPORT_MARGIN,
+    if (element.isContentEditable) {
+      return (
+        element.closest('[contenteditable="true"], [contenteditable=""], [contenteditable]') ||
+        element
       );
-
-      if (spaceBelow > spaceAbove) {
-        side = "below";
-        top = belowTop;
-      }
     }
 
-    top = clamp(
-      top,
-      VIEWPORT_MARGIN,
-      window.innerHeight - widgetRect.height - VIEWPORT_MARGIN,
-    );
-
-    widget.style.right = "auto";
-    widget.style.bottom = "auto";
-    widget.style.left = `${Math.round(left)}px`;
-    widget.style.top = `${Math.round(top)}px`;
-    widget.dataset.attachSide = side;
+    return element;
   }
 
-  function scheduleAttachedPosition() {
-    if (currentPlacementMode !== "attached") return;
-    if (attachFrame !== null) cancelAnimationFrame(attachFrame);
-
-    attachFrame = requestAnimationFrame(() => {
-      attachFrame = null;
-      positionWidgetAttached();
-    });
-  }
-
-  function syncWidgetPosition({ persistFloating = false } = {}) {
-    if (currentPlacementMode === "attached") {
-      scheduleAttachedPosition();
+  function attachWidgetToTarget() {
+    if (!target || !target.isConnected || !isEditable(target)) {
+      widget.classList.remove("stt-visible");
       return;
     }
 
-    requestAnimationFrame(() =>
-      clampWidgetToViewport({ persist: persistFloating }),
-    );
-  }
-
-  function applyPlacementMode(mode, { persist = true } = {}) {
-    const nextMode = PLACEMENT_MODES.has(mode) ? mode : "floating";
-    currentPlacementMode = nextMode;
-    widget.dataset.placement = nextMode;
-
-    const attached = nextMode === "attached";
-    attachToggle.classList.toggle("stt-attach-active", attached);
-    attachToggle.setAttribute("aria-pressed", String(attached));
-    attachToggle.title = attached
-      ? "Attached to the active text field — click to float"
-      : "Attach above the active text field";
-    attachToggle.setAttribute("aria-label", attachToggle.title);
-    header.title = attached
-      ? "Drag to detach and move"
-      : "Drag to move";
-
-    if (attached) {
-      hasCustomPosition = false;
-      if (hasAttachTarget()) {
-        scheduleAttachedPosition();
-      } else {
-        status.textContent = "Clique dans un champ texte pour attacher le widget.";
-      }
-    } else {
-      delete widget.dataset.attachSide;
-      status.textContent =
-        status.textContent === "Clique dans un champ texte pour attacher le widget."
-          ? ""
-          : status.textContent;
+    const anchor = getInlineAnchor(target);
+    const parent = anchor?.parentNode;
+    if (!anchor || !parent) {
+      widget.classList.remove("stt-visible");
+      return;
     }
 
-    if (persist) {
-      chrome.storage.local.set({ widgetPlacementMode: nextMode });
+    if (widget.parentNode !== parent || widget.nextSibling !== anchor) {
+      parent.insertBefore(widget, anchor);
     }
 
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    widget.dataset.placement = "inline";
+    widget.classList.add("stt-visible");
   }
 
   function applyDisplayMode(mode, { persist = true } = {}) {
@@ -653,7 +497,7 @@
       chrome.storage.local.set({ widgetDisplayMode: nextMode });
     }
 
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    attachWidgetToTarget();
   }
 
   chrome.storage.local
@@ -663,8 +507,6 @@
       "outputLanguage",
       "translationProvider",
       "widgetDisplayMode",
-      "widgetPlacementMode",
-      "widgetPosition",
       "savedArabicPhrases",
       "textSourceLanguage",
       "textTargetLanguage",
@@ -685,13 +527,9 @@
         : [];
 
       applyDisplayMode(stored.widgetDisplayMode || "medium", { persist: false });
-      applyPlacementMode(stored.widgetPlacementMode || "floating", { persist: false });
-      if (currentPlacementMode === "floating") {
-        applyPosition(stored.widgetPosition);
-      }
       updateTranslationProviderVisibility();
       renderPhrases();
-      syncWidgetPosition();
+      attachWidgetToTarget();
     });
 
   for (const button of modeButtons) {
@@ -701,13 +539,6 @@
     });
   }
 
-  attachToggle.addEventListener("click", (event) => {
-    event.stopPropagation();
-    applyPlacementMode(
-      currentPlacementMode === "attached" ? "floating" : "attached",
-    );
-  });
-
   providerSelect.addEventListener("change", () => {
     chrome.storage.local.set({ provider: providerSelect.value });
   });
@@ -715,13 +546,13 @@
   languageSelect.addEventListener("change", () => {
     chrome.storage.local.set({ language: languageSelect.value });
     updateTranslationProviderVisibility();
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    attachWidgetToTarget();
   });
 
   outputLanguageSelect.addEventListener("change", () => {
     chrome.storage.local.set({ outputLanguage: outputLanguageSelect.value });
     updateTranslationProviderVisibility();
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
+    attachWidgetToTarget();
   });
 
   translationProviderSelect.addEventListener("change", () => {
@@ -741,94 +572,6 @@
       textTargetLanguage: textTargetLanguageSelect.value,
     });
   });
-
-  function startDrag(event) {
-    if (event.button !== 0 || event.target.closest("button, select, input, textarea")) {
-      return;
-    }
-
-    const rect = widget.getBoundingClientRect();
-
-    if (currentPlacementMode === "attached") {
-      applyPlacementMode("floating");
-    }
-    dragState = {
-      pointerId: event.pointerId,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-    };
-
-    hasCustomPosition = true;
-    widget.style.right = "auto";
-    widget.style.bottom = "auto";
-    widget.style.left = `${Math.round(rect.left)}px`;
-    widget.style.top = `${Math.round(rect.top)}px`;
-    widget.classList.add("stt-dragging");
-    header.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-  }
-
-  function moveDrag(event) {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const width = widget.offsetWidth;
-    const height = widget.offsetHeight;
-    const maxLeft = window.innerWidth - width - VIEWPORT_MARGIN;
-    const maxTop = window.innerHeight - height - VIEWPORT_MARGIN;
-
-    const left = clamp(
-      event.clientX - dragState.offsetX,
-      VIEWPORT_MARGIN,
-      maxLeft,
-    );
-    const top = clamp(
-      event.clientY - dragState.offsetY,
-      VIEWPORT_MARGIN,
-      maxTop,
-    );
-
-    widget.style.left = `${Math.round(left)}px`;
-    widget.style.top = `${Math.round(top)}px`;
-    event.preventDefault();
-  }
-
-  function endDrag(event) {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-
-    dragState = null;
-    widget.classList.remove("stt-dragging");
-
-    try {
-      header.releasePointerCapture?.(event.pointerId);
-    } catch {
-      // Pointer capture may already have been released by the browser.
-    }
-
-    chrome.storage.local.set({
-      widgetPosition: getCurrentPosition(),
-    });
-  }
-
-  header.addEventListener("pointerdown", startDrag);
-  header.addEventListener("pointermove", moveDrag);
-  header.addEventListener("pointerup", endDrag);
-  header.addEventListener("pointercancel", endDrag);
-
-  window.addEventListener("resize", () => {
-    syncWidgetPosition({ persistFloating: hasCustomPosition });
-  });
-
-  document.addEventListener(
-    "scroll",
-    () => {
-      scheduleAttachedPosition();
-    },
-    true,
-  );
 
   function isEditable(element) {
     if (!(element instanceof HTMLElement)) return false;
@@ -850,24 +593,9 @@
     return false;
   }
 
-  const targetResizeObserver =
-    typeof ResizeObserver === "function"
-      ? new ResizeObserver(() => scheduleAttachedPosition())
-      : null;
-
   function setActiveTarget(element) {
-    if (observedTarget && targetResizeObserver) {
-      targetResizeObserver.unobserve(observedTarget);
-    }
-
     target = element;
-    observedTarget = element;
-
-    if (targetResizeObserver && element) {
-      targetResizeObserver.observe(element);
-    }
-
-    scheduleAttachedPosition();
+    attachWidgetToTarget();
   }
 
   document.addEventListener(
@@ -876,7 +604,6 @@
       if (!widget.contains(event.target) && isEditable(event.target)) {
         setActiveTarget(event.target);
         status.textContent = "";
-        syncWidgetPosition();
       }
     },
     true,
@@ -886,7 +613,7 @@
     setActiveTarget(document.activeElement);
   }
 
-  syncWidgetPosition();
+  attachWidgetToTarget();
 
   function setBusy(busy) {
     providerSelect.disabled = busy;
@@ -902,7 +629,6 @@
     textTranslationInput.disabled = busy;
     textTranslateButton.disabled = busy;
 
-    attachToggle.disabled = busy;
     for (const button of modeButtons) {
       button.disabled = busy;
     }
@@ -1041,7 +767,7 @@
         error instanceof Error ? error.message : "Translation failed.";
     } finally {
       setBusy(false);
-      syncWidgetPosition();
+      attachWidgetToTarget();
     }
   }
 
@@ -1094,7 +820,7 @@
     } finally {
       setBusy(false);
       updateTranslationProviderVisibility();
-      syncWidgetPosition();
+      attachWidgetToTarget();
     }
   }
 
