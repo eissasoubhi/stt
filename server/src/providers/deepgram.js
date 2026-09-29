@@ -8,7 +8,7 @@ export async function transcribeWithDeepgram({
   url.searchParams.set("model", "nova-3");
   url.searchParams.set("smart_format", "true");
   url.searchParams.set("punctuate", "true");
-  url.searchParams.set("language", language === "auto" ? "ar" : language);
+  url.searchParams.set("language", language === "auto" ? "multi" : language);
 
   const response = await fetch(url, {
     method: "POST",
