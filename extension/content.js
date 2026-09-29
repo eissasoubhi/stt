@@ -1,7 +1,9 @@
 (() => {
   const MAX_RECORDING_MS = 60_000;
   const DISPLAY_MODES = new Set(["full", "medium", "compact"]);
+  const PLACEMENT_MODES = new Set(["floating", "attached"]);
   const VIEWPORT_MARGIN = 8;
+  const ATTACH_GAP = 10;
   const MAX_SAVED_PHRASES = 100;
   const MAX_PHRASE_LENGTH = 240;
   const ARABIC_SCRIPT_RE = /\p{Script=Arabic}/u;
@@ -15,7 +17,10 @@
   let stopTimer = null;
   let recordingCancelled = false;
   let currentMode = "medium";
+  let currentPlacementMode = "floating";
   let hasCustomPosition = false;
+  let attachFrame = null;
+  let observedTarget = null;
   let dragState = null;
   let savedPhrases = [];
   let editingPhraseId = null;
@@ -30,10 +35,21 @@
         <span class="stt-widget-title">Voice STT</span>
       </div>
 
-      <div class="stt-mode-switcher" role="group" aria-label="Display mode">
-        <button type="button" class="stt-mode-button" data-stt-mode="full" title="Full mode" aria-label="Full mode">▣</button>
-        <button type="button" class="stt-mode-button" data-stt-mode="medium" title="Medium mode" aria-label="Medium mode">▬</button>
-        <button type="button" class="stt-mode-button" data-stt-mode="compact" title="Reduced mode" aria-label="Reduced mode">●</button>
+      <div class="stt-header-actions">
+        <button
+          id="stt-attach-toggle"
+          type="button"
+          class="stt-attach-button"
+          title="Attach above the active text field"
+          aria-label="Attach above the active text field"
+          aria-pressed="false"
+        >📎</button>
+
+        <div class="stt-mode-switcher" role="group" aria-label="Display mode">
+          <button type="button" class="stt-mode-button" data-stt-mode="full" title="Full mode" aria-label="Full mode">▣</button>
+          <button type="button" class="stt-mode-button" data-stt-mode="medium" title="Medium mode" aria-label="Medium mode">▬</button>
+          <button type="button" class="stt-mode-button" data-stt-mode="compact" title="Reduced mode" aria-label="Reduced mode">●</button>
+        </div>
       </div>
     </div>
 
@@ -149,6 +165,7 @@
   widget.classList.add("stt-visible");
 
   const header = widget.querySelector("#stt-widget-header");
+  const attachToggle = widget.querySelector("#stt-attach-toggle");
   const providerSelect = widget.querySelector("#stt-provider");
   const languageSelect = widget.querySelector("#stt-language");
   const outputLanguageSelect = widget.querySelector("#stt-output-language");
@@ -366,7 +383,7 @@
     await savePhrases();
     resetPhraseEditor();
     renderPhrases();
-    requestAnimationFrame(() => clampWidgetToViewport({ persist: hasCustomPosition }));
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   }
 
   function startPhraseEdit(id) {
@@ -388,7 +405,7 @@
     if (editingPhraseId === id) resetPhraseEditor();
     await savePhrases();
     renderPhrases();
-    requestAnimationFrame(() => clampWidgetToViewport({ persist: hasCustomPosition }));
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   }
 
   async function usePhrase(id) {
@@ -496,6 +513,129 @@
     }
   }
 
+  function hasAttachTarget() {
+    return Boolean(
+      target &&
+      target.isConnected &&
+      !widget.contains(target) &&
+      isEditable(target)
+    );
+  }
+
+  function positionWidgetAttached() {
+    if (
+      currentPlacementMode !== "attached" ||
+      !widget.classList.contains("stt-visible") ||
+      !hasAttachTarget()
+    ) {
+      return;
+    }
+
+    const targetRect = target.getBoundingClientRect();
+    const widgetRect = widget.getBoundingClientRect();
+
+    const maxLeft = window.innerWidth - widgetRect.width - VIEWPORT_MARGIN;
+    const centeredLeft =
+      targetRect.left + (targetRect.width - widgetRect.width) / 2;
+    const left = clamp(centeredLeft, VIEWPORT_MARGIN, maxLeft);
+
+    const aboveTop = targetRect.top - widgetRect.height - ATTACH_GAP;
+    const belowTop = targetRect.bottom + ATTACH_GAP;
+    const fitsAbove = aboveTop >= VIEWPORT_MARGIN;
+    const fitsBelow =
+      belowTop + widgetRect.height <= window.innerHeight - VIEWPORT_MARGIN;
+
+    let side = "above";
+    let top = aboveTop;
+
+    if (!fitsAbove && fitsBelow) {
+      side = "below";
+      top = belowTop;
+    } else if (!fitsAbove && !fitsBelow) {
+      const spaceAbove = Math.max(0, targetRect.top - VIEWPORT_MARGIN);
+      const spaceBelow = Math.max(
+        0,
+        window.innerHeight - targetRect.bottom - VIEWPORT_MARGIN,
+      );
+
+      if (spaceBelow > spaceAbove) {
+        side = "below";
+        top = belowTop;
+      }
+    }
+
+    top = clamp(
+      top,
+      VIEWPORT_MARGIN,
+      window.innerHeight - widgetRect.height - VIEWPORT_MARGIN,
+    );
+
+    widget.style.right = "auto";
+    widget.style.bottom = "auto";
+    widget.style.left = `${Math.round(left)}px`;
+    widget.style.top = `${Math.round(top)}px`;
+    widget.dataset.attachSide = side;
+  }
+
+  function scheduleAttachedPosition() {
+    if (currentPlacementMode !== "attached") return;
+    if (attachFrame !== null) cancelAnimationFrame(attachFrame);
+
+    attachFrame = requestAnimationFrame(() => {
+      attachFrame = null;
+      positionWidgetAttached();
+    });
+  }
+
+  function syncWidgetPosition({ persistFloating = false } = {}) {
+    if (currentPlacementMode === "attached") {
+      scheduleAttachedPosition();
+      return;
+    }
+
+    requestAnimationFrame(() =>
+      clampWidgetToViewport({ persist: persistFloating }),
+    );
+  }
+
+  function applyPlacementMode(mode, { persist = true } = {}) {
+    const nextMode = PLACEMENT_MODES.has(mode) ? mode : "floating";
+    currentPlacementMode = nextMode;
+    widget.dataset.placement = nextMode;
+
+    const attached = nextMode === "attached";
+    attachToggle.classList.toggle("stt-attach-active", attached);
+    attachToggle.setAttribute("aria-pressed", String(attached));
+    attachToggle.title = attached
+      ? "Attached to the active text field — click to float"
+      : "Attach above the active text field";
+    attachToggle.setAttribute("aria-label", attachToggle.title);
+    header.title = attached
+      ? "Drag to detach and move"
+      : "Drag to move";
+
+    if (attached) {
+      hasCustomPosition = false;
+      if (hasAttachTarget()) {
+        scheduleAttachedPosition();
+      } else {
+        status.textContent = "Clique dans un champ texte pour attacher le widget.";
+      }
+    } else {
+      delete widget.dataset.attachSide;
+      status.textContent =
+        status.textContent === "Clique dans un champ texte pour attacher le widget."
+          ? ""
+          : status.textContent;
+    }
+
+    if (persist) {
+      chrome.storage.local.set({ widgetPlacementMode: nextMode });
+    }
+
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
+  }
+
   function applyDisplayMode(mode, { persist = true } = {}) {
     const nextMode = DISPLAY_MODES.has(mode) ? mode : "medium";
     currentMode = nextMode;
@@ -513,7 +653,7 @@
       chrome.storage.local.set({ widgetDisplayMode: nextMode });
     }
 
-    requestAnimationFrame(() => clampWidgetToViewport({ persist: hasCustomPosition }));
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   }
 
   chrome.storage.local
@@ -523,6 +663,7 @@
       "outputLanguage",
       "translationProvider",
       "widgetDisplayMode",
+      "widgetPlacementMode",
       "widgetPosition",
       "savedArabicPhrases",
       "textSourceLanguage",
@@ -544,9 +685,13 @@
         : [];
 
       applyDisplayMode(stored.widgetDisplayMode || "medium", { persist: false });
-      applyPosition(stored.widgetPosition);
+      applyPlacementMode(stored.widgetPlacementMode || "floating", { persist: false });
+      if (currentPlacementMode === "floating") {
+        applyPosition(stored.widgetPosition);
+      }
       updateTranslationProviderVisibility();
       renderPhrases();
+      syncWidgetPosition();
     });
 
   for (const button of modeButtons) {
@@ -556,6 +701,13 @@
     });
   }
 
+  attachToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    applyPlacementMode(
+      currentPlacementMode === "attached" ? "floating" : "attached",
+    );
+  });
+
   providerSelect.addEventListener("change", () => {
     chrome.storage.local.set({ provider: providerSelect.value });
   });
@@ -563,13 +715,13 @@
   languageSelect.addEventListener("change", () => {
     chrome.storage.local.set({ language: languageSelect.value });
     updateTranslationProviderVisibility();
-    requestAnimationFrame(() => clampWidgetToViewport({ persist: hasCustomPosition }));
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   });
 
   outputLanguageSelect.addEventListener("change", () => {
     chrome.storage.local.set({ outputLanguage: outputLanguageSelect.value });
     updateTranslationProviderVisibility();
-    requestAnimationFrame(() => clampWidgetToViewport({ persist: hasCustomPosition }));
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   });
 
   translationProviderSelect.addEventListener("change", () => {
@@ -591,11 +743,15 @@
   });
 
   function startDrag(event) {
-    if (event.button !== 0 || event.target.closest("button, select, input")) {
+    if (event.button !== 0 || event.target.closest("button, select, input, textarea")) {
       return;
     }
 
     const rect = widget.getBoundingClientRect();
+
+    if (currentPlacementMode === "attached") {
+      applyPlacementMode("floating");
+    }
     dragState = {
       pointerId: event.pointerId,
       offsetX: event.clientX - rect.left,
@@ -663,8 +819,16 @@
   header.addEventListener("pointercancel", endDrag);
 
   window.addEventListener("resize", () => {
-    clampWidgetToViewport({ persist: hasCustomPosition });
+    syncWidgetPosition({ persistFloating: hasCustomPosition });
   });
+
+  document.addEventListener(
+    "scroll",
+    () => {
+      scheduleAttachedPosition();
+    },
+    true,
+  );
 
   function isEditable(element) {
     if (!(element instanceof HTMLElement)) return false;
@@ -686,23 +850,43 @@
     return false;
   }
 
+  const targetResizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => scheduleAttachedPosition())
+      : null;
+
+  function setActiveTarget(element) {
+    if (observedTarget && targetResizeObserver) {
+      targetResizeObserver.unobserve(observedTarget);
+    }
+
+    target = element;
+    observedTarget = element;
+
+    if (targetResizeObserver && element) {
+      targetResizeObserver.observe(element);
+    }
+
+    scheduleAttachedPosition();
+  }
+
   document.addEventListener(
     "focusin",
     (event) => {
       if (!widget.contains(event.target) && isEditable(event.target)) {
-        target = event.target;
+        setActiveTarget(event.target);
         status.textContent = "";
-        requestAnimationFrame(() => clampWidgetToViewport());
+        syncWidgetPosition();
       }
     },
     true,
   );
 
   if (!widget.contains(document.activeElement) && isEditable(document.activeElement)) {
-    target = document.activeElement;
+    setActiveTarget(document.activeElement);
   }
 
-  requestAnimationFrame(() => clampWidgetToViewport());
+  syncWidgetPosition();
 
   function setBusy(busy) {
     providerSelect.disabled = busy;
@@ -718,6 +902,7 @@
     textTranslationInput.disabled = busy;
     textTranslateButton.disabled = busy;
 
+    attachToggle.disabled = busy;
     for (const button of modeButtons) {
       button.disabled = busy;
     }
@@ -856,7 +1041,7 @@
         error instanceof Error ? error.message : "Translation failed.";
     } finally {
       setBusy(false);
-      requestAnimationFrame(() => clampWidgetToViewport());
+      syncWidgetPosition();
     }
   }
 
@@ -909,7 +1094,7 @@
     } finally {
       setBusy(false);
       updateTranslationProviderVisibility();
-      requestAnimationFrame(() => clampWidgetToViewport());
+      syncWidgetPosition();
     }
   }
 
