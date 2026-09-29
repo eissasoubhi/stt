@@ -115,7 +115,8 @@
   font-weight: 600;
 }
 
-#stt-dictation-widget select {
+#stt-dictation-widget select,
+#stt-phrase-input {
   width: 100%;
   min-width: 0;
   height: 34px;
@@ -127,6 +128,10 @@
   color: inherit;
 }
 
+#stt-phrase-input {
+  user-select: text;
+}
+
 .stt-action-row {
   display: flex;
   align-items: center;
@@ -134,7 +139,8 @@
   min-width: 0;
 }
 
-#stt-record-button {
+#stt-record-button,
+#stt-cancel-recording {
   flex: 0 0 auto;
   width: 38px;
   height: 38px;
@@ -142,10 +148,22 @@
   border: 0;
   border-radius: 50%;
   cursor: pointer;
-  background: #111;
   color: white;
   font-size: 18px;
   line-height: 38px;
+}
+
+#stt-record-button {
+  background: #111;
+}
+
+#stt-cancel-recording {
+  background: #666;
+  font-size: 16px;
+}
+
+#stt-cancel-recording:hover {
+  background: #444;
 }
 
 #stt-record-button.stt-recording {
@@ -154,8 +172,11 @@
 }
 
 #stt-record-button:disabled,
+#stt-cancel-recording:disabled,
 #stt-dictation-widget select:disabled,
-.stt-mode-button:disabled {
+#stt-phrase-input:disabled,
+.stt-mode-button:disabled,
+.stt-phrase-form button:disabled {
   opacity: 0.55;
   cursor: wait;
 }
@@ -168,15 +189,159 @@
   text-overflow: ellipsis;
 }
 
+/* Saved Arabic phrases */
+.stt-phrases-section {
+  min-width: 0;
+}
+
+.stt-phrases-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 700;
+  direction: rtl;
+}
+
+.stt-phrases-count {
+  color: #888;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.stt-phrase-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.stt-phrase-form button {
+  height: 34px;
+  padding: 0;
+  border: 1px solid #d0d0d0;
+  border-radius: 9px;
+  background: white;
+  color: #222;
+  cursor: pointer;
+  font-size: 17px;
+}
+
+.stt-phrase-form button:hover {
+  background: #f3f3f3;
+}
+
+.stt-phrase-error {
+  min-height: 0;
+  margin-bottom: 4px;
+  color: #b00020;
+  direction: rtl;
+  font-size: 11px;
+}
+
+.stt-phrase-error:empty {
+  display: none;
+}
+
+.stt-phrase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 190px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.stt-phrase-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stt-phrase-use {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 34px 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  background: #fafafa;
+  color: #111;
+  cursor: pointer;
+  font: inherit;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.stt-phrase-use:hover {
+  background: #f0f0f0;
+  border-color: #c8c8c8;
+}
+
+.stt-phrase-usage {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 20px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #666;
+  font-size: 9px;
+  text-align: center;
+  direction: ltr;
+}
+
+.stt-phrase-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stt-phrase-icon-button {
+  width: 30px;
+  min-width: 30px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  color: #555;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.stt-phrase-icon-button:hover {
+  background: #f3f3f3;
+}
+
+.stt-phrase-delete:hover {
+  color: #b00020;
+}
+
+.stt-phrases-empty {
+  padding: 8px;
+  border: 1px dashed #ddd;
+  border-radius: 9px;
+  color: #777;
+  text-align: center;
+  direction: rtl;
+}
+
 /* Full: everything is visible, labeled and roomy. */
 #stt-dictation-widget[data-mode="full"] {
-  width: min(430px, calc(100vw - 16px));
+  width: min(470px, calc(100vw - 16px));
 }
 
 #stt-dictation-widget[data-mode="full"] .stt-widget-body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+#stt-dictation-widget[data-mode="full"] .stt-phrases-section,
 #stt-dictation-widget[data-mode="full"] .stt-action-row {
   grid-column: 1 / -1;
 }
@@ -185,9 +350,9 @@
   max-width: 340px;
 }
 
-/* Medium: common daily controls only. Provider/translator keep their saved values. */
+/* Medium: daily controls + the most frequently used phrases. */
 #stt-dictation-widget[data-mode="medium"] {
-  width: min(390px, calc(100vw - 16px));
+  width: min(410px, calc(100vw - 16px));
 }
 
 #stt-dictation-widget[data-mode="medium"] .stt-widget-title {
@@ -196,6 +361,7 @@
 
 #stt-dictation-widget[data-mode="medium"] .stt-widget-body {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 7px;
@@ -206,15 +372,49 @@
 }
 
 #stt-dictation-widget[data-mode="medium"] .stt-common-control {
-  flex: 1 1 0;
+  flex: 1 1 130px;
 }
 
 #stt-dictation-widget[data-mode="medium"] .stt-field label {
   display: none;
 }
 
+#stt-dictation-widget[data-mode="medium"] .stt-phrases-section {
+  flex: 1 0 100%;
+  order: 2;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-list {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  max-height: 76px;
+  overflow: auto hidden;
+  padding-bottom: 2px;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-row {
+  flex: 0 0 auto;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-use {
+  width: auto;
+  max-width: 190px;
+  min-height: 30px;
+  padding: 5px 30px 5px 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrases-empty {
+  width: 100%;
+  padding: 6px;
+}
+
 #stt-dictation-widget[data-mode="medium"] .stt-action-row {
   flex: 0 0 auto;
+  order: 1;
 }
 
 #stt-dictation-widget[data-mode="medium"] #stt-status {
@@ -260,7 +460,8 @@
   padding: 2px 7px 7px;
 }
 
-#stt-dictation-widget[data-mode="compact"] .stt-field {
+#stt-dictation-widget[data-mode="compact"] .stt-field,
+#stt-dictation-widget[data-mode="compact"] .stt-phrases-section {
   display: none !important;
 }
 
@@ -268,10 +469,14 @@
   justify-content: center;
 }
 
-#stt-dictation-widget[data-mode="compact"] #stt-record-button {
+#stt-dictation-widget[data-mode="compact"] #stt-record-button,
+#stt-dictation-widget[data-mode="compact"] #stt-cancel-recording {
   width: 42px;
   height: 42px;
   line-height: 42px;
+}
+
+#stt-dictation-widget[data-mode="compact"] #stt-record-button {
   font-size: 19px;
 }
 
@@ -308,12 +513,13 @@
     grid-template-columns: 1fr;
   }
 
+  #stt-dictation-widget[data-mode="full"] .stt-phrases-section,
   #stt-dictation-widget[data-mode="full"] .stt-action-row {
     grid-column: 1;
   }
 
   #stt-dictation-widget[data-mode="medium"] {
-    width: min(340px, calc(100vw - 16px));
+    width: min(350px, calc(100vw - 16px));
   }
 
   #stt-dictation-widget[data-mode="medium"] #stt-status {
@@ -350,9 +556,38 @@
     color: #ddd;
   }
 
-  #stt-dictation-widget select {
+  #stt-dictation-widget select,
+  #stt-phrase-input,
+  .stt-phrase-form button,
+  .stt-phrase-icon-button {
     background: #222;
     color: #f5f5f5;
     border-color: #555;
+  }
+
+  .stt-phrase-use {
+    background: #262626;
+    color: #f5f5f5;
+    border-color: #4a4a4a;
+  }
+
+  .stt-phrase-use:hover,
+  .stt-phrase-form button:hover,
+  .stt-phrase-icon-button:hover {
+    background: #333;
+  }
+
+  .stt-phrase-usage {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ddd;
+  }
+
+  .stt-phrases-empty {
+    border-color: #555;
+    color: #bbb;
+  }
+
+  .stt-phrase-error {
+    color: #ff8a9b;
   }
 }
