@@ -84,8 +84,11 @@ Chrome / Edge:
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select the repository's `extension/` directory.
+5. Open a site where you want Voice STT.
+6. Click the extension icon and choose **Activer sur ce site**.
+7. The tab reloads once; after that, focusing an editable field inserts the widget directly above that field.
 
-Focus a normal text field on a website. The STT control appears in the bottom-right.
+No site is enabled by default.
 
 Choose:
 
@@ -94,6 +97,19 @@ Choose:
 3. output language/dialect;
 4. when conversion is needed, translation engine;
 5. click **🎤**, speak, then click **■**.
+
+## Explicit site allowlist
+
+The extension follows a **default-deny** model.
+
+- It is not injected into every website.
+- No website is enabled by default.
+- Open the extension popup on a site and click **Activer sur ce site** to grant access only to that exact site/scheme.
+- The popup shows the complete allowlist and lets you remove any site.
+- Removing the current site unregisters the content script and reloads the tab.
+- Host access uses Chrome optional permissions, so the extension requests website access only when you explicitly add a site.
+
+This means Voice STT cannot display or run on a site that is not in the allowlist.
 
 ## Display modes and inline widget
 
@@ -288,6 +304,7 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - One explicit STT provider request per recording.
 - Optional dialect/language conversion with Groq, Gemini, or local NLLB.
 - Persistent Full / Medium / Reduced widget modes.
+- Explicit per-site allowlist with no websites enabled by default.
 - Inline DOM widget automatically inserted immediately above the active editable field.
 - Ranked personal Arabic quick phrases with local usage statistics.
 - Recording cancellation before any transcription request is sent.
