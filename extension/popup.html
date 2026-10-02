@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Voice STT — Sites</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-header">
+        <div>
+          <h1>Voice STT</h1>
+          <p>Sites autorisés</p>
+        </div>
+        <span class="privacy-badge">Accès limité</span>
+      </header>
+
+      <section class="current-site" aria-labelledby="current-site-title">
+        <div class="section-heading">
+          <span id="current-site-title">Site actuel</span>
+          <span id="current-site-state" class="site-state"></span>
+        </div>
+
+        <div id="current-site-host" class="current-site-host">Chargement…</div>
+
+        <button id="current-site-toggle" class="primary-button" type="button" disabled>
+          Chargement…
+        </button>
+
+        <p id="current-site-help" class="help-text">
+          L’extension n’est injectée que sur les sites que tu autorises ici.
+        </p>
+      </section>
+
+      <section class="allowed-sites" aria-labelledby="allowed-sites-title">
+        <div class="section-heading">
+          <span id="allowed-sites-title">Liste autorisée</span>
+          <span id="allowed-sites-count" class="count-badge">0</span>
+        </div>
+
+        <div id="allowed-sites-list" class="sites-list"></div>
+
+        <p id="empty-sites" class="empty-state">
+          Aucun site autorisé pour le moment.
+        </p>
+      </section>
+
+      <div id="popup-status" class="popup-status" aria-live="polite"></div>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

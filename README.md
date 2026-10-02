@@ -2,28 +2,48 @@
 
 Browser extension + local Node.js gateway for **voice → text** dictation on websites.
 
-The first version supports three providers:
+The current version supports three transcription providers:
 
-- **Deepgram Nova-3** — Arabic locales including `ar-MA` and `ar-EG`.
+- **Deepgram Nova-3** — Arabic locales including `ar-MA` and `ar-EG`, plus multilingual mode.
 - **Gemini API / Gemini 3.5 Transcribe** — dedicated audio transcription with automatic language detection and code-switching.
-- **Google Cloud Speech-to-Text V2 / Chirp 3** — `chirp_3`, including `ar-MA` and `ar-EG`.
+- **Google Cloud Speech-to-Text V2 / Chirp 3** — `chirp_3`, including `ar-MA`, `ar-EG` and automatic language detection.
 
-The extension records only after an explicit click, sends the recording only after Stop, and inserts the returned transcript into the focused text field.
+For the optional second step — translating/adapting the transcript into another language or dialect — there are three engines:
+
+- **Groq Cloud + Qwen 3.8 27B** — default cloud option.
+- **Gemini** — cloud fallback you can switch to manually.
+- **NLLB-200 distilled 600M** — local/free fallback.
+
+Examples:
+
+- Moroccan Darija audio → Moroccan Darija text
+- Moroccan Darija audio → Egyptian Arabic text
+- English audio → Egyptian Arabic text
+- French audio → Moroccan Darija text
+- Egyptian Arabic audio → French text
+
+The extension records only after an explicit click, sends the recording only after Stop, and inserts the returned text into the focused field.
 
 ## Safety by default
 
 This project is intentionally conservative about paid API usage:
 
 - no background recording;
-- no automatic provider fallback;
-- no automatic cross-provider retry;
+- no automatic STT-provider fallback;
+- no automatic translation-provider fallback;
+- no automatic retry from Groq to Gemini;
+- no translation when output is **Same**;
+- no translation when the selected source and output are already the same language/dialect;
+- Groq is the default translation engine;
 - maximum recording duration;
-- daily and monthly local usage caps;
+- daily and monthly local audio caps;
 - per-provider monthly caps;
+- separate daily/monthly caps for translation requests;
 - Chirp 3 disabled by default;
+- Gemini disabled by default in `.env.example`;
 - API keys stay in the local server `.env`, never in the browser extension.
 
-These controls reduce accidental spend, but they do **not** replace provider-side billing controls. If you only want to use Deepgram promotional credit, do not add a payment method unless Deepgram requires it for your account.
+If Groq is unavailable or its free-tier limit is reached, the request fails visibly. You can then manually select **Gemini** in the extension. This avoids surprise paid fallback traffic.
 
 ## Quick start
 
@@ -37,7 +57,22 @@ npm test
 npm start
 ```
 
-Then edit `server/.env` and add at least one provider credential.
+Then edit `server/.env`.
+
+Recommended starting configuration:
+
+```env
+DEEPGRAM_ENABLED=true
+DEEPGRAM_API_KEY=your-deepgram-key
+
+GEMINI_ENABLED=false
+CHIRP_ENABLED=false
+
+TRANSLATION_ENABLED=true
+TRANSLATION_PROVIDER=groq
+GROQ_API_KEY=your-groq-key
+GROQ_TRANSLATION_MODEL=qwen/qwen3.8-27b
+```
 
 The gateway listens only on `127.0.0.1:3737` by default.
 
@@ -49,25 +84,174 @@ Chrome / Edge:
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select the repository's `extension/` directory.
+5. Open a site where you want Voice STT.
+6. Click the extension icon and choose **Activer sur ce site**.
+7. The tab reloads once; after that, focusing an editable field inserts the widget directly above that field.
 
-Focus a normal text field on a website. A small STT control appears in the bottom-right. Select a provider and dialect, click **🎤**, speak, then click **■**. The transcript is inserted into the field.
+No site is enabled by default.
 
-## Provider configuration
+Choose:
+
+1. transcription provider;
+2. spoken language/dialect;
+3. output language/dialect;
+4. when conversion is needed, translation engine;
+5. click **🎤**, speak, then click **■**.
+
+## Explicit site allowlist
+
+The extension follows a **default-deny** model.
+
+- It is not injected into every website.
+- No website is enabled by default.
+- Open the extension popup on a site and click **Activer sur ce site** to grant access only to that exact site/scheme.
+- The popup shows the complete allowlist and lets you remove any site.
+- Removing the current site unregisters the content script and reloads the tab.
+- Host access uses Chrome optional permissions, so the extension requests website access only when you explicitly add a site.
+
+This means Voice STT cannot display or run on a site that is not in the allowlist.
+
+## Display modes and inline widget
+
+The extension widget is now **inline-only**: it is inserted directly into the page DOM immediately before the active text field. It no longer floats over the page, has no drag-and-drop mode, and cannot be detached.
+
+When you focus another editable field, the same widget is moved in the DOM so it appears directly above that field. This keeps the controls visually connected to the place where text will be inserted.
+
+The widget still has three density modes:
+
+- **Full** `▣`: all STT settings, explicit translation controls, full quick-phrase management, microphone and status.
+- **Medium** `▬`: everyday controls, explicit translation source/destination, top quick phrases and microphone.
+- **Reduced** `●`: a compact inline microphone toolbar above the active field.
+
+The widget forces its own left-to-right UI direction so Arabic/RTL websites cannot reverse the control order. Arabic phrase content itself remains RTL.
+
+## Typed text → Arabic translation
+
+The extension can also translate text that you type, without recording audio.
+
+Workflow:
+
+```text
+Type English or French
+        ↓
+Groq Cloud by default
+        ↓
+Moroccan Darija / Egyptian Arabic / MSA
+        ↓
+Automatically inserted into the last active page text field
+```
+
+Both **Full** and **Medium** modes show explicit labels for **Langue source** and **Traduire vers** so the direction is always clear. The recommended source setting is `Détection automatique` for Groq/Gemini.
+
+To use it:
+
+1. click the destination text field on the web page;
+2. type your English/French text in **Traduction texte**;
+3. choose `🇲🇦 Darija`, `🇪🇬 Egyptian`, or Modern Standard Arabic;
+4. click **Traduire → insérer**.
+
+The translated text is inserted automatically at the cursor position. You can also press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (macOS).
+
+This feature uses the same translation provider selector as speech conversion. Groq remains the default, Gemini is a manual fallback, and NLLB remains available locally. NLLB needs an explicit source language; `Auto` is supported by Groq/Gemini.
+
+## Saved Arabic phrases
+
+Full mode contains a personal quick-phrase manager.
+
+- Add up to **100 phrases**.
+- Phrases must contain Arabic-script text and reject Latin-letter phrases.
+- Click a phrase to insert it immediately into the last active page text field.
+- Usage is counted locally every time a phrase is inserted.
+- Phrases are automatically ranked by **usage count**, then by **most recent use**.
+- Full mode shows all saved phrases with edit/delete actions.
+- Medium mode shows only the top 5 phrases.
+- Phrase text and usage statistics are stored locally in `chrome.storage.local`; they are not sent to Deepgram, Groq, Gemini, or the local gateway.
+
+Example ranking:
+
+```text
+السلام عليكم        34 uses
+كيف حالك؟           21 uses
+شكراً جزيلاً         9 uses
+```
+
+## Cancel a voice recording
+
+While recording:
+
+- **■** stops and sends the audio for transcription.
+- **✕** cancels the recording completely.
+
+Cancelling discards the captured chunks locally and does **not** call the transcription API, so a cancelled recording does not consume Deepgram/Gemini/Chirp transcription usage.
+
+## Translation providers
+
+### Groq Cloud — default
+
+Set:
+
+```env
+TRANSLATION_PROVIDER=groq
+GROQ_API_KEY=...
+GROQ_TRANSLATION_MODEL=qwen/qwen3.8-27b
+```
+
+The backend calls Groq's OpenAI-compatible Chat Completions endpoint.
+
+The extension shows:
+
+```text
+☁️ Groq Cloud · Free
+✨ Gemini
+🌐 NLLB local · free
+```
+
+No automatic fallback occurs. If you want Gemini, select it explicitly.
+
+### Gemini — manual fallback
+
+Set:
+
+```env
+GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-3.8-flash
+```
+
+You do not need to enable Gemini as an STT provider just to use its key for translation. Select **Gemini** from the translation selector when you want to compare quality.
+
+### Local NLLB
+
+Set:
+
+```env
+NLLB_ENABLED=true
+NLLB_MODEL=Xenova/nllb-200-distilled-600M
+NLLB_DTYPE=q8
+```
+
+No API key is required. NLLB needs an explicit source language when translation is required, so avoid **Auto** with this translation provider.
+
+## Important: no translation is needed for Darija → Darija
+
+If you select:
+
+```text
+Spoken: Moroccan Darija
+Output: Moroccan Darija
+```
+
+the application returns the Deepgram transcript directly. It does not call Groq, Gemini, or NLLB.
+
+## STT provider configuration
 
 ### Deepgram Nova-3
-
-Create a Deepgram API key and set:
 
 ```env
 DEEPGRAM_API_KEY=...
 DEEPGRAM_ENABLED=true
 ```
 
-The dialect selector maps directly to `ar-MA` or `ar-EG`. Auto uses generic Arabic `ar`.
-
 ### Gemini API
-
-Set:
 
 ```env
 GEMINI_API_KEY=...
@@ -76,13 +260,9 @@ GEMINI_MODEL=gemini-3.5-transcribe
 GEMINI_MODE=SMART
 ```
 
-Gemini is left in automatic language detection mode so Darija/French/English code-switching is not artificially constrained.
-
 ### Chirp 3
 
-Chirp 3 uses Google Cloud Speech-to-Text V2 and is **separate from Gemini API billing**.
-
-Enable the Speech-to-Text API in your Google Cloud project, configure Application Default Credentials (for example with a service-account JSON file), then set:
+Chirp 3 uses Google Cloud Speech-to-Text V2 and is separate from Gemini API billing.
 
 ```env
 CHIRP_ENABLED=true
@@ -90,8 +270,6 @@ GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_REGION=eu
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
 ```
-
-The extension maps the dialect selector to `ar-MA`, `ar-EG`, or Chirp automatic detection.
 
 ## Local spending guardrails
 
@@ -105,13 +283,16 @@ MONTHLY_AUDIO_MINUTES_LIMIT=300
 DEEPGRAM_MONTHLY_AUDIO_MINUTES_LIMIT=300
 GEMINI_MONTHLY_AUDIO_MINUTES_LIMIT=120
 CHIRP_MONTHLY_AUDIO_MINUTES_LIMIT=15
+
+DAILY_TRANSLATION_REQUEST_LIMIT=50
+MONTHLY_TRANSLATION_REQUEST_LIMIT=500
 ```
 
-Set a provider limit to a smaller value if you want a tighter local hard stop. Usage is stored only on your machine under `server/data/usage.json`.
+Set any limit lower if you want a tighter local hard stop. Usage is stored only on your machine under `server/data/usage.json`.
 
 ## Security
 
-The server binds to localhost only. Requests to the transcription endpoint require the extension client header and reject normal webpage origins. This prevents a random website from silently using the local gateway in the normal browser security model.
+The server binds to localhost only. Requests to the transcription endpoint require the extension client header and reject normal webpage origins.
 
 Never commit `.env`, API keys, Google service-account JSON files, or any recorded audio.
 
@@ -120,6 +301,13 @@ Never commit `.env`, API keys, Google service-account JSON files, or any recorde
 - Chrome / Edge Manifest V3.
 - Short dictation recordings (up to 60 seconds by default).
 - Textareas, normal text inputs, and `contenteditable` editors.
-- One explicit provider request per recording.
+- One explicit STT provider request per recording.
+- Optional dialect/language conversion with Groq, Gemini, or local NLLB.
+- Persistent Full / Medium / Reduced widget modes.
+- Explicit per-site allowlist with no websites enabled by default.
+- Inline DOM widget automatically inserted immediately above the active editable field.
+- Ranked personal Arabic quick phrases with local usage statistics.
+- Recording cancellation before any transcription request is sent.
+- Typed English/French text translation to Darija, Egyptian Arabic, or MSA with automatic insertion into the active page field.
 
-A future version can add real-time streaming, Firefox packaging, provider quality benchmarking, and optional custom vocabulary.
+Future work can add real-time streaming, Firefox packaging, provider quality benchmarking, optional custom vocabulary, and a fully local/offline transcription engine.

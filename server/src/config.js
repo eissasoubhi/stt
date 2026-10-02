@@ -1,0 +1,102 @@
+import "dotenv/config";
+
+function readNumber(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`Invalid numeric environment variable ${name}`);
+  }
+  return value;
+}
+
+function readBoolean(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
+}
+
+export const config = {
+  host: process.env.HOST || "127.0.0.1",
+  port: readNumber("PORT", 3737),
+
+  maxRecordingSeconds: readNumber("MAX_RECORDING_SECONDS", 60),
+  maxAudioBytes: readNumber("MAX_AUDIO_BYTES", 8 * 1024 * 1024),
+  requestsPerMinuteLimit: readNumber("REQUESTS_PER_MINUTE_LIMIT", 8),
+  dailyAudioMinutesLimit: readNumber("DAILY_AUDIO_MINUTES_LIMIT", 30),
+  monthlyAudioMinutesLimit: readNumber("MONTHLY_AUDIO_MINUTES_LIMIT", 300),
+
+  translation: {
+    enabled: readBoolean("TRANSLATION_ENABLED", true),
+    defaultProvider: process.env.TRANSLATION_PROVIDER || "groq",
+    dailyRequestLimit: readNumber("DAILY_TRANSLATION_REQUEST_LIMIT", 50),
+    monthlyRequestLimit: readNumber("MONTHLY_TRANSLATION_REQUEST_LIMIT", 500),
+    groq: {
+      apiKey: process.env.GROQ_API_KEY || "",
+      model: process.env.GROQ_TRANSLATION_MODEL || "qwen/qwen3.8-27b",
+    },
+    gemini: {
+      model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
+    },
+    nllb: {
+      enabled: readBoolean("NLLB_ENABLED", true),
+      model:
+        process.env.NLLB_MODEL || "Xenova/nllb-200-distilled-600M",
+      dtype: process.env.NLLB_DTYPE || "q8",
+    },
+  },
+
+  providers: {
+    deepgram: {
+      enabled: readBoolean("DEEPGRAM_ENABLED", true),
+      apiKey: process.env.DEEPGRAM_API_KEY || "",
+      monthlyAudioMinutesLimit: readNumber("DEEPGRAM_MONTHLY_AUDIO_MINUTES_LIMIT", 300),
+    },
+    gemini: {
+      enabled: readBoolean("GEMINI_ENABLED", true),
+      apiKey: process.env.GEMINI_API_KEY || "",
+      model: process.env.GEMINI_MODEL || "gemini-3.5-transcribe",
+      mode: process.env.GEMINI_MODE || "SMART",
+      monthlyAudioMinutesLimit: readNumber("GEMINI_MONTHLY_AUDIO_MINUTES_LIMIT", 120),
+    },
+    chirp: {
+      enabled: readBoolean("CHIRP_ENABLED", false),
+      projectId: process.env.GOOGLE_CLOUD_PROJECT || "",
+      region: process.env.GOOGLE_CLOUD_REGION || "eu",
+      monthlyAudioMinutesLimit: readNumber("CHIRP_MONTHLY_AUDIO_MINUTES_LIMIT", 15),
+    },
+  },
+};
+
+export function isProviderConfigured(name) {
+  const provider = config.providers[name];
+  if (!provider?.enabled) return false;
+
+  if (name === "deepgram" || name === "gemini") {
+    return Boolean(provider.apiKey);
+  }
+
+  if (name === "chirp") {
+    return Boolean(provider.projectId);
+  }
+
+  return false;
+}
+
+export function isTranslationConfigured(name) {
+  if (!config.translation.enabled) return false;
+
+  if (name === "groq") {
+    return Boolean(config.translation.groq.apiKey);
+  }
+
+  if (name === "nllb") {
+    return config.translation.nllb.enabled;
+  }
+
+  if (name === "gemini") {
+    return Boolean(config.providers.gemini.apiKey);
+  }
+
+  return false;
+}

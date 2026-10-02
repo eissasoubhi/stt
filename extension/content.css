@@ -1,0 +1,644 @@
+#stt-dictation-widget,
+#stt-dictation-widget * {
+  box-sizing: border-box !important;
+}
+
+#stt-dictation-widget {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 10 !important;
+  display: none;
+  flex: 1 0 100%;
+  grid-column: 1 / -1;
+  align-self: stretch;
+  width: 100%;
+  max-width: 760px;
+  min-width: 0;
+  margin: 0 0 8px 0 !important;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+  color: #111111;
+  direction: ltr !important;
+  text-align: left !important;
+  overflow: hidden;
+  user-select: none;
+  font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+#stt-dictation-widget.stt-visible {
+  display: flex;
+  flex-direction: column;
+}
+
+#stt-dictation-widget button,
+#stt-dictation-widget select,
+#stt-dictation-widget textarea,
+#stt-dictation-widget input,
+#stt-dictation-widget label,
+#stt-dictation-widget span,
+#stt-dictation-widget div {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.stt-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(248, 248, 248, 0.96);
+}
+
+.stt-widget-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.stt-widget-title {
+  font-weight: 700;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.stt-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stt-mode-button {
+  width: 27px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px !important;
+  line-height: 24px !important;
+}
+
+.stt-mode-button:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.stt-mode-button.stt-mode-active {
+  background: #111;
+  color: #fff;
+}
+
+.stt-widget-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px;
+}
+
+.stt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+.stt-field[hidden] {
+  display: none !important;
+}
+
+.stt-field label,
+.stt-text-language-field label {
+  display: block !important;
+  color: #616161;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+  direction: ltr !important;
+}
+
+#stt-dictation-widget select,
+#stt-phrase-input,
+#stt-text-translation-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d2d2d2 !important;
+  border-radius: 8px !important;
+  outline: none;
+  background: #fff !important;
+  color: #111 !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+}
+
+#stt-dictation-widget select {
+  height: 36px !important;
+  padding: 0 9px !important;
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+#stt-dictation-widget select:focus,
+#stt-phrase-input:focus,
+#stt-text-translation-input:focus {
+  border-color: #246fe0 !important;
+  box-shadow: 0 0 0 2px rgba(36, 111, 224, 0.13) !important;
+}
+
+#stt-phrase-input {
+  height: 36px !important;
+  padding: 0 9px !important;
+  user-select: text;
+}
+
+#stt-text-translation-input {
+  min-height: 64px;
+  height: auto;
+  resize: vertical;
+  padding: 9px !important;
+  line-height: 1.4 !important;
+  user-select: text;
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+/* Typed text translation: source -> destination is explicit and always labeled. */
+.stt-text-translation {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  min-width: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  direction: ltr !important;
+}
+
+.stt-text-translation-heading {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #262626;
+}
+
+.stt-text-language-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  gap: 7px;
+  align-items: end;
+}
+
+.stt-text-language-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stt-text-language-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  color: #777;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+#stt-text-translate-button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: #111 !important;
+  color: #fff !important;
+  cursor: pointer;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+}
+
+#stt-text-translate-button:hover {
+  opacity: 0.9;
+}
+
+/* Saved Arabic phrases */
+.stt-phrases-section {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.stt-phrases-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 800 !important;
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.stt-phrases-count {
+  color: #888;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  direction: ltr !important;
+}
+
+.stt-phrase-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px 36px;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.stt-phrase-form button {
+  height: 36px;
+  padding: 0;
+  border: 1px solid #d2d2d2 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #222 !important;
+  cursor: pointer;
+  font-size: 17px !important;
+}
+
+.stt-phrase-form button:hover {
+  background: #f4f4f4 !important;
+}
+
+.stt-phrase-error {
+  margin-bottom: 4px;
+  color: #b00020;
+  direction: rtl !important;
+  text-align: right !important;
+  font-size: 11px !important;
+}
+
+.stt-phrase-error:empty {
+  display: none;
+}
+
+.stt-phrase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 190px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.stt-phrase-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stt-phrase-use {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 34px 7px 10px;
+  border: 1px solid #ddd !important;
+  border-radius: 8px !important;
+  background: #fafafa !important;
+  color: #111 !important;
+  cursor: pointer;
+  font-size: 13px !important;
+  text-align: right !important;
+  direction: rtl !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.stt-phrase-use:hover {
+  background: #f0f0f0 !important;
+}
+
+.stt-phrase-usage {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 20px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #666;
+  font-size: 9px !important;
+  text-align: center !important;
+  direction: ltr !important;
+}
+
+.stt-phrase-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stt-phrase-icon-button {
+  width: 31px;
+  min-width: 31px;
+  border: 1px solid #ddd !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #555 !important;
+  cursor: pointer;
+  font-size: 13px !important;
+}
+
+.stt-phrase-icon-button:hover {
+  background: #f3f3f3 !important;
+}
+
+.stt-phrase-delete:hover {
+  color: #b00020 !important;
+}
+
+.stt-phrases-empty {
+  padding: 8px;
+  border: 1px dashed #ddd;
+  border-radius: 8px;
+  color: #777;
+  text-align: center !important;
+  direction: rtl !important;
+}
+
+.stt-action-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#stt-record-button,
+#stt-cancel-recording {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 50% !important;
+  cursor: pointer;
+  color: #fff !important;
+  line-height: 40px !important;
+}
+
+#stt-record-button {
+  background: #111 !important;
+  font-size: 18px !important;
+}
+
+#stt-cancel-recording {
+  background: #666 !important;
+  font-size: 16px !important;
+}
+
+#stt-record-button.stt-recording {
+  background: #b00020 !important;
+  animation: stt-pulse 1s infinite alternate;
+}
+
+#stt-status {
+  min-width: 0;
+  color: #4b4b4b;
+  font-size: 12px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+#stt-record-button:disabled,
+#stt-cancel-recording:disabled,
+#stt-dictation-widget select:disabled,
+#stt-phrase-input:disabled,
+#stt-text-translation-input:disabled,
+.stt-mode-button:disabled,
+.stt-phrase-form button:disabled,
+#stt-text-translate-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* Full */
+#stt-dictation-widget[data-mode="full"] {
+  max-width: 760px;
+}
+
+/* Medium: still explicit, but hides provider-level settings. */
+#stt-dictation-widget[data-mode="medium"] {
+  max-width: 680px;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-widget-title {
+  font-size: 12px !important;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-widget-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-full-only {
+  display: none !important;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-text-translation-heading {
+  display: block !important;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-text-language-flow {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+
+#stt-dictation-widget[data-mode="medium"] #stt-text-translation-input {
+  min-height: 52px;
+  resize: none;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-list {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  max-height: 74px;
+  overflow: auto hidden;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-row {
+  flex: 0 0 auto;
+}
+
+#stt-dictation-widget[data-mode="medium"] .stt-phrase-use {
+  width: auto;
+  max-width: 190px;
+  min-height: 31px;
+  padding: 5px 30px 5px 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact: inline mini toolbar, never floating. */
+#stt-dictation-widget[data-mode="compact"] {
+  width: max-content;
+  max-width: 100%;
+  min-width: 150px;
+  flex: 0 0 auto;
+  grid-column: auto;
+  align-self: flex-start;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-header {
+  min-height: 30px;
+  padding: 4px 6px;
+  border-bottom: 0;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-title {
+  display: none;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-mode-button {
+  width: 22px;
+  height: 21px;
+  line-height: 21px !important;
+  font-size: 10px !important;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-widget-body {
+  display: flex;
+  justify-content: center;
+  padding: 2px 7px 7px;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-field,
+#stt-dictation-widget[data-mode="compact"] .stt-text-translation,
+#stt-dictation-widget[data-mode="compact"] .stt-phrases-section {
+  display: none !important;
+}
+
+#stt-dictation-widget[data-mode="compact"] .stt-action-row {
+  display: flex;
+  justify-content: center;
+}
+
+#stt-dictation-widget[data-mode="compact"] #stt-status {
+  max-width: 230px;
+}
+
+@keyframes stt-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+@media (max-width: 560px) {
+  #stt-dictation-widget {
+    max-width: 100%;
+  }
+
+  #stt-dictation-widget[data-mode="full"] .stt-widget-body,
+  #stt-dictation-widget[data-mode="medium"] .stt-widget-body {
+    grid-template-columns: 1fr;
+  }
+
+  .stt-text-language-flow,
+  #stt-dictation-widget[data-mode="medium"] .stt-text-language-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .stt-text-language-arrow {
+    height: 18px;
+    transform: rotate(90deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #stt-dictation-widget {
+    background: #1f1f1f;
+    color: #f5f5f5;
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .stt-widget-header {
+    background: #262626;
+    border-bottom-color: rgba(255, 255, 255, 0.09);
+  }
+
+  .stt-mode-button {
+    color: #bbb;
+  }
+
+  .stt-mode-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .stt-mode-button.stt-mode-active {
+    background: #f5f5f5;
+    color: #111;
+  }
+
+  .stt-field label,
+  .stt-text-language-field label,
+  #stt-status {
+    color: #d5d5d5;
+  }
+
+  .stt-text-translation-heading {
+    color: #f2f2f2;
+  }
+
+  .stt-text-translation,
+  .stt-phrases-section {
+    border-top-color: rgba(255, 255, 255, 0.09);
+  }
+
+  #stt-dictation-widget select,
+  #stt-phrase-input,
+  #stt-text-translation-input,
+  .stt-phrase-form button,
+  .stt-phrase-icon-button {
+    background: #282828 !important;
+    color: #f5f5f5 !important;
+    border-color: #555 !important;
+  }
+
+  .stt-phrase-use {
+    background: #282828 !important;
+    color: #f5f5f5 !important;
+    border-color: #4a4a4a !important;
+  }
+
+  .stt-phrase-use:hover,
+  .stt-phrase-form button:hover,
+  .stt-phrase-icon-button:hover {
+    background: #333 !important;
+  }
+
+  .stt-phrase-usage {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ddd;
+  }
+
+  .stt-phrases-empty {
+    border-color: #555;
+    color: #bbb;
+  }
+
+  .stt-phrase-error {
+    color: #ff8a9b;
+  }
+}
