@@ -1,4 +1,5 @@
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:3737";
+const SITE_SCRIPT_ID = "stt-allowed-sites";
 
 const ROUTES = {
   STT_TRANSCRIBE: {
@@ -36,7 +37,88 @@ function parseGatewayResponse(raw, contentType) {
   }
 }
 
+async function getGrantedAllowedSites() {
+  const { allowedSitePatterns = [] } =
+    await chrome.storage.local.get("allowedSitePatterns");
+
+  const unique = [...new Set(
+    allowedSitePatterns.filter(
+      (pattern) =>
+        typeof pattern === "string" &&
+        /^(https?):\/\/[^/]+\/\*$/.test(pattern),
+    ),
+  )];
+
+  const granted = [];
+
+  for (const pattern of unique) {
+    const hasPermission = await chrome.permissions.contains({
+      origins: [pattern],
+    });
+
+    if (hasPermission) {
+      granted.push(pattern);
+    }
+  }
+
+  if (granted.length !== unique.length) {
+    await chrome.storage.local.set({ allowedSitePatterns: granted });
+  }
+
+  return granted;
+}
+
+async function syncAllowedSiteRegistration() {
+  try {
+    await chrome.scripting.unregisterContentScripts({
+      ids: [SITE_SCRIPT_ID],
+    });
+  } catch {
+    // Nothing registered yet.
+  }
+
+  const matches = await getGrantedAllowedSites();
+  if (!matches.length) return;
+
+  await chrome.scripting.registerContentScripts([
+    {
+      id: SITE_SCRIPT_ID,
+      matches,
+      js: ["content.js"],
+      css: ["content.css"],
+      runAt: "document_idle",
+      persistAcrossSessions: true,
+    },
+  ]);
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  void syncAllowedSiteRegistration();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void syncAllowedSiteRegistration();
+});
+
+void syncAllowedSiteRegistration();
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "SYNC_ALLOWED_SITES") {
+    (async () => {
+      try {
+        await syncAllowedSiteRegistration();
+        sendResponse({ ok: true });
+      } catch (error) {
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : "Site sync failed.",
+        });
+      }
+    })();
+
+    return true;
+  }
+
   const route = ROUTES[message?.type];
   if (!route) {
     return false;
